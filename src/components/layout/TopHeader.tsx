@@ -19,7 +19,7 @@ interface TopHeaderProps {
 
 export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, sidebarCollapsed }: TopHeaderProps) {
   const { user, logout } = useAuth();
-  const { employees, reports, tickets, chats } = useHR();
+  const { employees, reports, tickets, tasks, chats } = useHR();
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
@@ -59,13 +59,24 @@ export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, s
       path: "/support",
     }));
 
+  const taskNotifications = tasks
+    .filter((task) => task.status === "Kutilmoqda" || task.status === "Tasdiqlangan" || task.status === "Bajarilmoqda")
+    .map((task) => ({
+      id: `task-${task.id}`,
+      title: "Vazifa",
+      text: `${task.employeeName}: ${task.title} · ${task.status}`,
+      time: task.deadline,
+      path: "/tasks",
+    }));
+
   const notifications = [
     ...chatNotifications,
     ...reportNotifications,
     ...supportNotifications,
+    ...taskNotifications,
   ].slice(0, 12);
 
-  const notificationCount = chatNotifications.length + reportNotifications.length + supportNotifications.length;
+  const notificationCount = chatNotifications.length + reportNotifications.length + supportNotifications.length + taskNotifications.length;
 
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border">
@@ -104,7 +115,7 @@ export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, s
             <div className="p-3 border-b border-border">
               <div className="font-semibold text-sm">Bildirishnomalar</div>
               <div className="text-[11px] text-muted-foreground mt-1">
-                Chat: {chatNotifications.length} · Hisobot: {reportNotifications.length} · Support: {supportNotifications.length}
+                Chat: {chatNotifications.length} · Hisobot: {reportNotifications.length} · Support: {supportNotifications.length} · Vazifa: {taskNotifications.length}
               </div>
             </div>
             <div className="max-h-80 overflow-y-auto">
