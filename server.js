@@ -161,6 +161,26 @@ async function setBotCommands() {
   });
 }
 
+async function configureTelegramDelivery() {
+  if (!BOT_TOKEN) return;
+  await setBotCommands();
+
+  if (PUBLIC_URL) {
+    const webhookUrl = `${PUBLIC_URL.replace(/\/$/, "")}/api/telegram/webhook`;
+    const result = await telegram("setWebhook", {
+      url: webhookUrl,
+      drop_pending_updates: false,
+    });
+    console.log(`Telegram webhook: ${webhookUrl}`);
+    console.log(result.ok ? "Telegram webhook enabled" : `Telegram webhook error: ${JSON.stringify(result)}`);
+    return;
+  }
+
+  await telegram("deleteWebhook", { drop_pending_updates: false });
+  console.log("Telegram polling mode enabled");
+  pollTelegram();
+}
+
 function mainKeyboard() {
   return {
     keyboard: [
@@ -615,6 +635,15 @@ async function routeApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
+  if (req.method === "GET" && url.pathname === "/api/telegram/status") {
+    const result = await telegram("getWebhookInfo", {});
+    return sendJson(res, 200, {
+      publicUrl: PUBLIC_URL || null,
+      hasToken: Boolean(BOT_TOKEN),
+      webhook: result,
+    });
+  }
+
   return sendJson(res, 404, { error: "API topilmadi" });
 }
 
@@ -648,11 +677,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`yourHR server: http://localhost:${PORT}`);
   console.log(BOT_TOKEN ? "Telegram bot token loaded" : "Telegram bot token not set");
-  if (BOT_TOKEN) {
-    setBotCommands().catch((error) => console.error("Telegram commands error:", error.message));
-    if (!PUBLIC_URL) {
-      console.log("Telegram polling mode enabled");
-      pollTelegram();
-    }
-  }
+  configureTelegramDelivery().catch((error) => console.error("Telegram setup error:", error.message));
 });
