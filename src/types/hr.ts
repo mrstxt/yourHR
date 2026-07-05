@@ -29,6 +29,8 @@ export interface Employee {
   email?: string;
   joinedAt?: string;
   telegramChatId?: string;
+  telegramLogin?: string;
+  telegramPassword?: string;
 }
 
 export interface Task {

@@ -67,7 +67,7 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [loaded, setLoaded] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>(stored.employees);
   const [tasks, setTasks] = useState<Task[]>(stored.tasks);
-  const [attendance] = useState<Attendance[]>(stored.attendance);
+  const [attendance, setAttendance] = useState<Attendance[]>(stored.attendance);
   const [reports, setReports] = useState<DailyReport[]>(stored.reports);
   const [tickets, setTickets] = useState<SupportTicket[]>(stored.tickets);
   const [rules, setRules] = useState<RuleSettings>(stored.rules);
@@ -79,6 +79,7 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       .then((data) => {
         setEmployees(data.employees ?? stored.employees);
         setTasks(data.tasks ?? stored.tasks);
+        setAttendance(data.attendance ?? stored.attendance);
         setReports(data.reports ?? stored.reports);
         setTickets(data.tickets ?? stored.tickets);
         setRules(data.rules ?? stored.rules);
@@ -88,6 +89,25 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       .catch(() => setBackendReady(false))
       .finally(() => setLoaded(true));
   }, []);
+
+  useEffect(() => {
+    if (!backendReady) return;
+    const timer = setInterval(() => {
+      fetch("/api/state")
+        .then((res) => res.ok ? res.json() : Promise.reject())
+        .then((data) => {
+          setEmployees(data.employees ?? []);
+          setTasks(data.tasks ?? []);
+          setAttendance(data.attendance ?? []);
+          setReports(data.reports ?? []);
+          setTickets(data.tickets ?? []);
+          setRules(data.rules ?? initialRules);
+          setChats(data.chats ?? {});
+        })
+        .catch(() => undefined);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [backendReady]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -103,7 +123,30 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const value = useMemo<HRContextValue>(() => ({
     employees, tasks, attendance, reports, tickets, rules, chats,
-    addEmployee: (e) => setEmployees(prev => [...prev, { ...e, id: `e${Date.now()}`, avatarInitials: initials(e.fullName), telegramChatId: e.telegramChatId ?? "" }]),
+    addEmployee: (e) => {
+      const fallback = {
+        ...e,
+        id: `e${Date.now()}`,
+        avatarInitials: initials(e.fullName),
+        telegramLogin: e.telegramLogin || e.fullName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24),
+        telegramPassword: e.telegramPassword || `tg${Math.random().toString(36).slice(2, 8)}`,
+        telegramChatId: "",
+      };
+
+      if (backendReady) {
+        fetch("/api/employees", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fallback),
+        })
+          .then((res) => res.ok ? res.json() : Promise.reject())
+          .then((employee) => setEmployees(prev => [...prev, employee]))
+          .catch(() => setEmployees(prev => [...prev, fallback]));
+        return;
+      }
+
+      setEmployees(prev => [...prev, fallback]);
+    },
     updateEmployee: (id, patch) => setEmployees(prev => prev.map(x => x.id === id ? { ...x, ...patch, avatarInitials: patch.fullName ? initials(patch.fullName) : x.avatarInitials } : x)),
     deleteEmployee: (id) => setEmployees(prev => prev.filter(x => x.id !== id)),
     addTask: (t) => {
@@ -138,12 +181,29 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     updateReportStatus: (id, status) => setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r)),
     addTicket: (t) => setTickets(prev => [{ ...t, id: `s${Date.now()}`, createdAt: new Date().toISOString().slice(0,10), status: "Ochiq", reply: "" }, ...prev]),
     updateTicket: (id, patch) => setTickets(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t)),
-    sendMessage: (employeeId, text) => setChats(prev => ({
-      ...prev,
-      [employeeId]: [...(prev[employeeId] ?? []), { id: `m${Date.now()}`, employeeId, fromMe: true, text, time: new Date().toTimeString().slice(0,5) }]
-    })),
+    sendMessage: (employeeId, text) => {
+      if (backendReady) {
+        fetch(`/api/chats/${employeeId}/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        })
+          .then((res) => res.ok ? res.json() : Promise.reject())
+          .then((data) => setChats(prev => ({ ...prev, [employeeId]: data.messages })))
+          .catch(() => setChats(prev => ({
+            ...prev,
+            [employeeId]: [...(prev[employeeId] ?? []), { id: `m${Date.now()}`, employeeId, fromMe: true, text, time: new Date().toTimeString().slice(0,5) }]
+          })));
+        return;
+      }
+
+      setChats(prev => ({
+        ...prev,
+        [employeeId]: [...(prev[employeeId] ?? []), { id: `m${Date.now()}`, employeeId, fromMe: true, text, time: new Date().toTimeString().slice(0,5) }]
+      }));
+    },
     updateRules: (r) => setRules(r),
-  }), [employees, tasks, attendance, reports, tickets, rules, chats]);
+  }), [backendReady, employees, tasks, attendance, reports, tickets, rules, chats]);
 
   return <HRContext.Provider value={value}>{children}</HRContext.Provider>;
 };

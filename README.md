@@ -34,16 +34,19 @@ TELEGRAM_BOT_TOKEN=token
 curl -X POST https://your-domain.com/api/telegram/set-webhook
 ```
 
-4. HR panelda xodim profilini oching va bot ulanish kodini xodimga yuboring:
+4. HR panelda xodim qo'shganda Telegram login/parol bering.
 
 ```text
-/start e2
+/login bekzod bekzod123
 ```
 
 Xodim bot orqali:
-- `/tasks` bilan vazifalarini ko'radi
+- `✅ Keldim` bilan kelgan vaqtini saqlaydi
+- `🏁 Ketdim` bilan ketgan vaqtini saqlaydi va kunlik hisobot so'raladi
+- `📋 Mening vazifalarim` bilan vazifalarini ko'radi
 - inline tugmalar bilan vazifa statusini yangilaydi
-- `hisobot: bugun ...` yozib kunlik hisobot yuboradi
+- `📝 Kunlik hisobot` bilan hisobot yuboradi
+- `💬 HR bilan chat` orqali HR paneldagi chatga xabar yuboradi
 
 ## Deploy
 

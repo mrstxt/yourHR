@@ -24,6 +24,8 @@ const PUBLIC_URL = process.env.PUBLIC_URL || "";
 const DATA_FILE = path.join(process.cwd(), "yourhr-data.json");
 const DIST_DIR = path.join(process.cwd(), "dist");
 let telegramOffset = 0;
+const pendingReport = new Set();
+const pendingChat = new Set();
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -36,11 +38,12 @@ const mime = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = (prefix) => `${prefix}${Date.now()}${crypto.randomBytes(2).toString("hex")}`;
+const timeNow = () => new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 const seed = {
   employees: [
-    { id: "e1", fullName: "Aziza Karimova", position: "HR Menejer", salary: 12000000, kpi: 94, status: "Faol", avatarInitials: "AK", phone: "+998 90 123 45 67", email: "aziza@company.uz", joinedAt: "2022-03-15", telegramChatId: "" },
-    { id: "e2", fullName: "Bekzod Yusupov", position: "Frontend Dasturchi", salary: 18000000, kpi: 88, status: "Faol", avatarInitials: "BY", phone: "+998 90 234 56 78", email: "bekzod@company.uz", joinedAt: "2021-07-01", telegramChatId: "" },
+    { id: "e1", fullName: "Aziza Karimova", position: "HR Menejer", salary: 12000000, kpi: 94, status: "Faol", avatarInitials: "AK", phone: "+998 90 123 45 67", email: "aziza@company.uz", joinedAt: "2022-03-15", telegramLogin: "aziza", telegramPassword: "aziza123", telegramChatId: "" },
+    { id: "e2", fullName: "Bekzod Yusupov", position: "Frontend Dasturchi", salary: 18000000, kpi: 88, status: "Faol", avatarInitials: "BY", phone: "+998 90 234 56 78", email: "bekzod@company.uz", joinedAt: "2021-07-01", telegramLogin: "bekzod", telegramPassword: "bekzod123", telegramChatId: "" },
   ],
   tasks: [
     { id: "t1", title: "Dashboard KPI grafiklari", description: "Recharts bilan grafiklar", employeeId: "e2", employeeName: "Bekzod Yusupov", status: "Kutilmoqda", priority: "Yuqori", deadline: today(), bonusAmount: 500000, createdAt: today() },
@@ -61,6 +64,35 @@ function initials(name) {
     .join("") || "U";
 }
 
+function slugify(value) {
+  return String(value || "xodim")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 24) || "xodim";
+}
+
+function makePassword() {
+  return `tg${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function ensureEmployeeCredentials() {
+  const used = new Set();
+  for (const employee of db.employees) {
+    let login = employee.telegramLogin || slugify(employee.fullName);
+    let suffix = 2;
+    while (used.has(login)) {
+      login = `${slugify(employee.fullName)}-${suffix}`;
+      suffix += 1;
+    }
+    employee.telegramLogin = login;
+    employee.telegramPassword = employee.telegramPassword || makePassword();
+    employee.telegramChatId = employee.telegramChatId || "";
+    if (employee.telegramChatId && !/^-?\d+$/.test(String(employee.telegramChatId))) employee.telegramChatId = "";
+    used.add(login);
+  }
+}
+
 function loadDb() {
   if (!fs.existsSync(DATA_FILE)) {
     fs.writeFileSync(DATA_FILE, JSON.stringify(seed, null, 2));
@@ -71,6 +103,8 @@ function loadDb() {
 }
 
 let db = loadDb();
+ensureEmployeeCredentials();
+saveDb();
 
 function saveDb() {
   fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2));
@@ -111,10 +145,33 @@ async function setBotCommands() {
   await telegram("setMyCommands", {
     commands: [
       { command: "start", description: "Xodim sifatida botga ulanish" },
+      { command: "login", description: "Login va parol bilan kirish" },
       { command: "tasks", description: "Menga biriktirilgan vazifalar" },
       { command: "help", description: "Botdan foydalanish" },
     ],
   });
+}
+
+function mainKeyboard() {
+  return {
+    keyboard: [
+      [{ text: "✅ Keldim" }, { text: "🏁 Ketdim" }],
+      [{ text: "📋 Mening vazifalarim" }, { text: "📝 Kunlik hisobot" }],
+      [{ text: "💬 HR bilan chat" }],
+    ],
+    resize_keyboard: true,
+  };
+}
+
+function authHelpText() {
+  return [
+    "Assalomu alaykum. Botdan foydalanish uchun HR bergan login va parol bilan kiring:",
+    "",
+    "/login login parol",
+    "",
+    "Masalan:",
+    "/login bekzod bekzod123",
+  ].join("\n");
 }
 
 async function sendTaskToEmployee(task) {
@@ -153,19 +210,98 @@ function employeeTaskList(employeeId) {
   ].filter(Boolean).join("\n")).join("\n\n");
 }
 
+async function sendEmployeeTasks(chatId, employeeId) {
+  const tasks = db.tasks.filter((task) => task.employeeId === employeeId && task.status !== "Bajarildi" && task.status !== "Rad etildi");
+  if (!tasks.length) {
+    await telegram("sendMessage", { chat_id: chatId, text: "Sizga biriktirilgan ochiq vazifa yo'q.", reply_markup: mainKeyboard() });
+    return;
+  }
+
+  for (const task of tasks) {
+    await telegram("sendMessage", {
+      chat_id: chatId,
+      parse_mode: "HTML",
+      text: [
+        `📌 <b>${task.title}</b>`,
+        task.description || "",
+        `Holat: ${task.status}`,
+        `Muddat: ${task.deadline || "-"}`,
+        `Muhimlik: ${task.priority}`,
+        `Bonus: ${Number(task.bonusAmount || 0).toLocaleString("uz-UZ")} so'm`,
+      ].filter(Boolean).join("\n"),
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "Boshladim", callback_data: `task:${task.id}:Bajarilmoqda` },
+          { text: "Bajarildi", callback_data: `task:${task.id}:Bajarildi` },
+        ]],
+      },
+    });
+  }
+}
+
+function findEmployeeByChat(chatId) {
+  return db.employees.find((item) => String(item.telegramChatId) === String(chatId));
+}
+
+function upsertAttendance(employee, patch) {
+  const date = today();
+  let row = db.attendance.find((item) => item.employeeId === employee.id && item.date === date);
+  if (!row) {
+    row = {
+      id: uid("a"),
+      employeeId: employee.id,
+      employeeName: employee.fullName,
+      date,
+      checkIn: "-",
+      checkOut: "-",
+      status: "Vaqtida",
+    };
+    db.attendance.push(row);
+  }
+
+  Object.assign(row, patch);
+  return row;
+}
+
+function addEmployeeReport(employee, content) {
+  db.reports.unshift({
+    id: uid("r"),
+    employeeId: employee.id,
+    employeeName: employee.fullName,
+    content,
+    date: today(),
+    status: "Kutilmoqda",
+  });
+}
+
+function addEmployeeChat(employee, text, fromMe = false) {
+  db.chats[employee.id] = [
+    ...(db.chats[employee.id] || []),
+    { id: uid("m"), employeeId: employee.id, fromMe, text, time: timeNow() },
+  ];
+}
+
 async function handleTelegramUpdate(update) {
   if (update.message) {
     const chatId = String(update.message.chat.id);
     const text = String(update.message.text || "").trim();
-    const [command, arg] = text.split(/\s+/, 2);
+    const parts = text.split(/\s+/);
+    const command = parts[0];
 
     if (command === "/start") {
-      const employee = db.employees.find((item) => item.id === arg);
+      await telegram("sendMessage", {
+        chat_id: chatId,
+        text: authHelpText(),
+      });
+      return;
+    }
+
+    if (command === "/login") {
+      const login = parts[1];
+      const password = parts[2];
+      const employee = db.employees.find((item) => item.telegramLogin === login && item.telegramPassword === password);
       if (!employee) {
-        await telegram("sendMessage", {
-          chat_id: chatId,
-          text: "Assalomu alaykum. HR paneldan berilgan ulanish kodini yuboring: /start e2",
-        });
+        await telegram("sendMessage", { chat_id: chatId, text: "Login yoki parol noto'g'ri. Qayta urinib ko'ring." });
         return;
       }
 
@@ -173,26 +309,88 @@ async function handleTelegramUpdate(update) {
       saveDb();
       await telegram("sendMessage", {
         chat_id: chatId,
-        text: `✅ ${employee.fullName}, botga ulandingiz.\nVazifalarni ko'rish: /tasks\nHisobot yuborish: hisobot: bugun ...`,
+        text: `✅ ${employee.fullName}, botga muvaffaqiyatli kirdingiz.`,
+        reply_markup: mainKeyboard(),
       });
       return;
     }
 
-    const employee = db.employees.find((item) => String(item.telegramChatId) === chatId);
+    const employee = findEmployeeByChat(chatId);
     if (!employee) {
-      await telegram("sendMessage", { chat_id: chatId, text: "Avval HR paneldagi kodingiz bilan ulang: /start e2" });
+      await telegram("sendMessage", { chat_id: chatId, text: authHelpText() });
       return;
     }
 
-    if (command === "/tasks") {
-      await telegram("sendMessage", { chat_id: chatId, text: employeeTaskList(employee.id) });
+    if (pendingReport.has(chatId)) {
+      pendingReport.delete(chatId);
+      addEmployeeReport(employee, text);
+      saveDb();
+      await telegram("sendMessage", { chat_id: chatId, text: "✅ Kunlik hisobot HR panelga yuborildi.", reply_markup: mainKeyboard() });
+      return;
+    }
+
+    if (pendingChat.has(chatId)) {
+      pendingChat.delete(chatId);
+      addEmployeeChat(employee, text, false);
+      saveDb();
+      await telegram("sendMessage", { chat_id: chatId, text: "✅ Xabaringiz HR chatga yuborildi.", reply_markup: mainKeyboard() });
+      return;
+    }
+
+    if (command === "/tasks" || text === "📋 Mening vazifalarim") {
+      await sendEmployeeTasks(chatId, employee.id);
+      return;
+    }
+
+    if (text === "✅ Keldim") {
+      const checkIn = timeNow();
+      upsertAttendance(employee, {
+        checkIn,
+        status: checkIn > "09:15" ? "Kechikdi" : "Vaqtida",
+      });
+      saveDb();
+      await telegram("sendMessage", { chat_id: chatId, text: `✅ Keldi vaqtingiz saqlandi: ${checkIn}`, reply_markup: mainKeyboard() });
+      return;
+    }
+
+    if (text === "🏁 Ketdim") {
+      const checkOut = timeNow();
+      upsertAttendance(employee, { checkOut });
+      pendingReport.add(chatId);
+      saveDb();
+      await telegram("sendMessage", {
+        chat_id: chatId,
+        text: "🏁 Ketish vaqtingiz saqlandi.\n\nBugun ishlar va sizga berilgan vazifalar qilindimi? Kunlik hisobotni yozing:",
+        reply_markup: { remove_keyboard: true },
+      });
+      return;
+    }
+
+    if (text === "📝 Kunlik hisobot") {
+      pendingReport.add(chatId);
+      await telegram("sendMessage", {
+        chat_id: chatId,
+        text: "Bugungi ishlaringiz bo'yicha hisobot yozing:",
+        reply_markup: { remove_keyboard: true },
+      });
+      return;
+    }
+
+    if (text === "💬 HR bilan chat") {
+      pendingChat.add(chatId);
+      await telegram("sendMessage", {
+        chat_id: chatId,
+        text: "HRga yubormoqchi bo'lgan xabaringizni yozing:",
+        reply_markup: { remove_keyboard: true },
+      });
       return;
     }
 
     if (command === "/help") {
       await telegram("sendMessage", {
         chat_id: chatId,
-        text: "Buyruqlar:\n/tasks - vazifalar\nhisobot: matn - kunlik hisobot yuborish\n\nVazifa kelganda tugmalar orqali statusni yangilang.",
+        text: "Tugmalar orqali ishlang:\n✅ Keldim\n🏁 Ketdim\n📋 Mening vazifalarim\n📝 Kunlik hisobot\n💬 HR bilan chat",
+        reply_markup: mainKeyboard(),
       });
       return;
     }
@@ -207,13 +405,14 @@ async function handleTelegramUpdate(update) {
         status: "Kutilmoqda",
       });
       saveDb();
-      await telegram("sendMessage", { chat_id: chatId, text: "✅ Hisobot HR panelga yuborildi." });
+      await telegram("sendMessage", { chat_id: chatId, text: "✅ Hisobot HR panelga yuborildi.", reply_markup: mainKeyboard() });
       return;
     }
 
     await telegram("sendMessage", {
       chat_id: chatId,
-      text: "Buyruqlar:\n/tasks - vazifalar\nhisobot: matn - kunlik hisobot yuborish",
+      text: "Pastdagi tugmalardan foydalaning yoki /help ni bosing.",
+      reply_markup: mainKeyboard(),
     });
   }
 
@@ -221,7 +420,7 @@ async function handleTelegramUpdate(update) {
     const chatId = String(update.callback_query.message.chat.id);
     const [, taskId, status] = String(update.callback_query.data || "").split(":");
     const task = db.tasks.find((item) => item.id === taskId);
-    const employee = db.employees.find((item) => String(item.telegramChatId) === chatId);
+    const employee = findEmployeeByChat(chatId);
     if (task && employee && task.employeeId === employee.id) {
       task.status = status;
       saveDb();
@@ -259,14 +458,23 @@ async function routeApi(req, res, url) {
   if (req.method === "PUT" && url.pathname === "/api/state") {
     const body = await readBody(req);
     db = { ...db, ...body };
+    ensureEmployeeCredentials();
     saveDb();
     return sendJson(res, 200, db);
   }
 
   if (req.method === "POST" && url.pathname === "/api/employees") {
     const body = await readBody(req);
-    const employee = { ...body, id: uid("e"), avatarInitials: initials(body.fullName), telegramChatId: body.telegramChatId || "" };
+    const employee = {
+      ...body,
+      id: uid("e"),
+      avatarInitials: initials(body.fullName),
+      telegramLogin: body.telegramLogin || slugify(body.fullName),
+      telegramPassword: body.telegramPassword || makePassword(),
+      telegramChatId: body.telegramChatId || "",
+    };
     db.employees.push(employee);
+    ensureEmployeeCredentials();
     saveDb();
     return sendJson(res, 201, employee);
   }
@@ -294,6 +502,28 @@ async function routeApi(req, res, url) {
     task.status = body.status;
     saveDb();
     return sendJson(res, 200, task);
+  }
+
+  const chatSend = url.pathname.match(/^\/api\/chats\/([^/]+)\/send$/);
+  if (req.method === "POST" && chatSend) {
+    const body = await readBody(req);
+    const employee = db.employees.find((item) => item.id === chatSend[1]);
+    if (!employee) return sendJson(res, 404, { error: "Xodim topilmadi" });
+    if (!body.text) return sendJson(res, 400, { error: "Xabar matni kerak" });
+
+    addEmployeeChat(employee, body.text, true);
+    saveDb();
+
+    let telegramResult = { ok: false, skipped: true };
+    if (employee.telegramChatId) {
+      telegramResult = await telegram("sendMessage", {
+        chat_id: employee.telegramChatId,
+        text: `💬 HR xabari:\n${body.text}`,
+        reply_markup: mainKeyboard(),
+      });
+    }
+
+    return sendJson(res, 200, { messages: db.chats[employee.id] || [], telegram: telegramResult });
   }
 
   if (req.method === "POST" && url.pathname === "/api/telegram/webhook") {

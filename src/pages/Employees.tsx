@@ -15,7 +15,7 @@ import { formatUZS } from "@/lib/format";
 import { toast } from "sonner";
 
 type FormData = Omit<Employee, "id" | "avatarInitials">;
-const empty: FormData = { fullName: "", position: "", salary: 0, kpi: 80, status: "Faol", phone: "", email: "", telegramChatId: "" };
+const empty: FormData = { fullName: "", position: "", salary: 0, kpi: 80, status: "Faol", phone: "", email: "", telegramLogin: "", telegramPassword: "" };
 
 export default function Employees() {
   const { employees, tasks, reports, attendance, addEmployee, updateEmployee, deleteEmployee } = useHR();
@@ -120,7 +120,7 @@ export default function Employees() {
                       <div>
                         <div className="font-semibold">{e.fullName}</div>
                         <div className="text-xs text-muted-foreground">
-                          {e.email} {e.telegramChatId ? "· Telegram ulangan" : "· Telegram ulanmagan"}
+                          {e.email} · TG: {e.telegramLogin || "-"} {e.telegramChatId ? "· ulangan" : "· ulanmagan"}
                         </div>
                       </div>
                     </div>
@@ -182,12 +182,21 @@ export default function Employees() {
             </div>
             <div className="space-y-1.5"><Label>Telefon</Label><Input value={form.phone ?? ""} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Email</Label><Input value={form.email ?? ""} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-            <div className="space-y-1.5">
-              <Label>Telegram chat ID</Label>
-              <Input value={form.telegramChatId ?? ""} onChange={e => setForm({ ...form, telegramChatId: e.target.value })} placeholder="Botga /start kodi yuborilganda avtomatik to'ladi" />
-              <p className="text-xs text-muted-foreground">
-                Xodim botga ulanishi uchun avval xodimni saqlang, keyin profilida chiqadigan /start kodini yuborsin.
-              </p>
+            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+              <div>
+                <div className="text-sm font-semibold">Telegram bot login</div>
+                <p className="text-xs text-muted-foreground">Xodim botda /login login parol orqali kiradi.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Login</Label>
+                  <Input value={form.telegramLogin ?? ""} onChange={e => setForm({ ...form, telegramLogin: e.target.value })} placeholder="auto" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Parol</Label>
+                  <Input value={form.telegramPassword ?? ""} onChange={e => setForm({ ...form, telegramPassword: e.target.value })} placeholder="auto" />
+                </div>
+              </div>
             </div>
           </div>
           <SheetFooter>
@@ -223,8 +232,8 @@ export default function Employees() {
                   </div>
                 </div>
                 <div className="rounded-xl bg-accent/40 border border-border p-4">
-                  <div className="text-xs text-muted-foreground mb-1">Telegram bot ulanish kodi</div>
-                  <div className="font-mono text-sm font-semibold">/start {detail.id}</div>
+                  <div className="text-xs text-muted-foreground mb-1">Telegram bot uchun login-parol</div>
+                  <div className="font-mono text-sm font-semibold">/login {detail.telegramLogin} {detail.telegramPassword}</div>
                   <div className="text-xs text-muted-foreground mt-2">
                     Holat: {detail.telegramChatId ? `ulangan (${detail.telegramChatId})` : "hali ulanmagan"}
                   </div>
