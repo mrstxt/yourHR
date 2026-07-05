@@ -156,7 +156,7 @@ export default function Admin() {
                 <h2 className="font-display text-xl font-bold">Kompaniyalar</h2>
                 <p className="text-sm text-muted-foreground">Bu yerda yaratilgan loginlar HR panelga kirish uchun ishlaydi.</p>
               </div>
-              <Button variant="outline" onClick={resetDemoData}>Demo reset</Button>
+              <Button variant="outline" onClick={resetDemoData}>Kompaniyalarni 0 qilish</Button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

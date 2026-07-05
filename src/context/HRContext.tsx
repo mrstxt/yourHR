@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Employee, Task, Attendance, DailyReport, SupportTicket, RuleSettings, ChatMessage, TaskStatus, ReportStatus, TicketStatus } from "@/types/hr";
-import { initialEmployees, initialTasks, initialAttendance, initialReports, initialTickets, initialRules, initialChats } from "@/data/mockData";
+import { initialRules } from "@/data/mockData";
 
 interface HRContextValue {
   employees: Employee[];
@@ -24,7 +24,7 @@ interface HRContextValue {
 }
 
 const HRContext = createContext<HRContextValue | null>(null);
-const HR_DATA_KEY = "yourhr_hr_data";
+const HR_DATA_KEY = "yourhr_hr_data_clean_v1";
 
 interface StoredHRData {
   employees: Employee[];
@@ -38,13 +38,13 @@ interface StoredHRData {
 
 function readStoredData(): StoredHRData {
   const fallback: StoredHRData = {
-    employees: initialEmployees,
-    tasks: initialTasks,
-    attendance: initialAttendance,
-    reports: initialReports,
-    tickets: initialTickets,
+    employees: [],
+    tasks: [],
+    attendance: [],
+    reports: [],
+    tickets: [],
     rules: initialRules,
-    chats: initialChats,
+    chats: {},
   };
 
   const raw = localStorage.getItem(HR_DATA_KEY);

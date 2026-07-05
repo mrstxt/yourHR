@@ -24,8 +24,8 @@ export default function Login() {
       return;
     }
 
-    setUsername("demo-company");
-    setPassword("demo12345");
+    setUsername("");
+    setPassword("");
   };
 
   const submit = (e: React.FormEvent) => {
@@ -140,7 +140,7 @@ export default function Login() {
           </Button>
 
           <div className="text-center text-xs text-muted-foreground">
-            Admin: <b>admin / admin123</b>. HR demo: <b>demo-company / demo12345</b>.
+            Admin: <b>admin / admin123</b>. HR login-parol super admin tomonidan yaratiladi.
           </div>
         </form>
       </div>

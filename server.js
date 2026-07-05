@@ -42,14 +42,8 @@ const uid = (prefix) => `${prefix}${Date.now()}${crypto.randomBytes(2).toString(
 const timeNow = () => new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 const seed = {
-  employees: [
-    { id: "e1", fullName: "Aziza Karimova", position: "HR Menejer", salary: 12000000, kpi: 0, compensationType: "bonus", monthlyBonus: 500000, status: "Faol", avatarInitials: "AK", phone: "+998 90 123 45 67", email: "aziza@company.uz", joinedAt: "2022-03-15", telegramLogin: "aziza", telegramPassword: "aziza123", telegramChatId: "" },
-    { id: "e2", fullName: "Bekzod Yusupov", position: "Frontend Dasturchi", salary: 18000000, kpi: 0, compensationType: "bonus", monthlyBonus: 700000, status: "Faol", avatarInitials: "BY", phone: "+998 90 234 56 78", email: "bekzod@company.uz", joinedAt: "2021-07-01", telegramLogin: "bekzod", telegramPassword: "bekzod123", telegramChatId: "" },
-    { id: "e3", fullName: "Zilola Abdullayeva", position: "Sotuv menejeri", salary: 10500000, kpi: 3, compensationType: "sales", salesKpiPercent: 3, monthlySalesAmount: 85000000, status: "Faol", avatarInitials: "ZA", phone: "+998 90 789 01 23", email: "zilola@company.uz", joinedAt: "2022-06-22", telegramLogin: "zilola", telegramPassword: "zilola123", telegramChatId: "" },
-  ],
-  tasks: [
-    { id: "t1", title: "Dashboard KPI grafiklari", description: "Recharts bilan grafiklar", employeeId: "e2", employeeName: "Bekzod Yusupov", status: "Kutilmoqda", priority: "Yuqori", deadline: today(), bonusAmount: 500000, createdAt: today() },
-  ],
+  employees: [],
+  tasks: [],
   attendance: [],
   reports: [],
   tickets: [],

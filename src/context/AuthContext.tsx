@@ -3,8 +3,8 @@ import { AuthUser, CompanyAccount, UserRole } from "@/types/hr";
 
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = "admin123";
-const COMPANIES_KEY = "yourhr_companies";
-const USER_KEY = "yourhr_user";
+const COMPANIES_KEY = "yourhr_companies_clean_v1";
+const USER_KEY = "yourhr_user_clean_v1";
 
 interface LoginResult {
   ok: boolean;
@@ -32,18 +32,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const seedCompanies: CompanyAccount[] = [
-  {
-    id: "cmp_demo",
-    name: "Demo Kompaniya",
-    username: "demo-company",
-    password: "demo12345",
-    contactName: "Demo HR",
-    contactInfo: "+998 90 000 00 00",
-    status: "active",
-    createdAt: new Date().toISOString().slice(0, 10),
-  },
-];
+const seedCompanies: CompanyAccount[] = [];
 
 function readCompanies() {
   const raw = localStorage.getItem(COMPANIES_KEY);
@@ -51,7 +40,7 @@ function readCompanies() {
 
   try {
     const parsed = JSON.parse(raw) as CompanyAccount[];
-    return parsed.length ? parsed : seedCompanies;
+    return Array.isArray(parsed) ? parsed : seedCompanies;
   } catch {
     return seedCompanies;
   }
