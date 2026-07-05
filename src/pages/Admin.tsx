@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useHR } from "@/context/HRContext";
 import { Button } from "@/components/ui/button";
@@ -12,13 +12,26 @@ import { cn } from "@/lib/utils";
 import { TicketStatus } from "@/types/hr";
 
 export default function Admin() {
-  const { companies, createCompany, updateCompanyStatus, resetDemoData, logout } = useAuth();
+  const {
+    adminCredentials,
+    companies,
+    createCompany,
+    updateAdminCredentials,
+    updateCompanyStatus,
+    resetDemoData,
+    logout,
+  } = useAuth();
   const { employees, tickets, updateTicket } = useHR();
   const [form, setForm] = useState({ name: "", contactName: "", contactInfo: "", username: "", password: "" });
+  const [adminForm, setAdminForm] = useState({ username: adminCredentials.username, password: "", confirmPassword: "" });
   const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [supportReply, setSupportReply] = useState("");
   const [supportStatus, setSupportStatus] = useState<TicketStatus>("Jarayonda");
+
+  useEffect(() => {
+    setAdminForm((prev) => ({ ...prev, username: adminCredentials.username }));
+  }, [adminCredentials.username]);
 
   const stats = useMemo(() => ({
     companies: companies.length,
@@ -40,6 +53,30 @@ export default function Admin() {
     setLastCreatedId(company.id);
     setForm({ name: "", contactName: "", contactInfo: "", username: "", password: "" });
     toast.success(`${company.name} uchun login-parol yaratildi`);
+  };
+
+  const saveAdminCredentials = (e: React.FormEvent) => {
+    e.preventDefault();
+    const username = adminForm.username.trim();
+
+    if (!username || !adminForm.password || !adminForm.confirmPassword) {
+      toast.error("Super admin login va yangi parolni kiriting");
+      return;
+    }
+
+    if (adminForm.password.length < 6) {
+      toast.error("Parol kamida 6 ta belgidan iborat bo'lsin");
+      return;
+    }
+
+    if (adminForm.password !== adminForm.confirmPassword) {
+      toast.error("Parol tasdiqlash maydoni mos kelmadi");
+      return;
+    }
+
+    updateAdminCredentials({ username, password: adminForm.password });
+    setAdminForm({ username, password: "", confirmPassword: "" });
+    toast.success("Super admin login-paroli yangilandi");
   };
 
   const copy = async (text: string) => {
@@ -117,38 +154,77 @@ export default function Admin() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-5">
-          <form onSubmit={saveCompany} className="card-elevated p-5 space-y-4">
-            <div>
-              <h2 className="font-display text-xl font-bold">Kompaniya qo'shish</h2>
-              <p className="text-sm text-muted-foreground">Saqlangandan keyin HR uchun login-parol chiqadi.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Kompaniya nomi</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Masalan: Najot Ta'lim" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Mas'ul HR</Label>
-              <Input value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} placeholder="F.I.O" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Telefon yoki email</Label>
-              <Input value={form.contactInfo} onChange={(e) => setForm({ ...form, contactInfo: e.target.value })} placeholder="+998..." />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Login</Label>
-                <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="auto" />
+          <div className="space-y-5">
+            <form onSubmit={saveCompany} className="card-elevated p-5 space-y-4">
+              <div>
+                <h2 className="font-display text-xl font-bold">Kompaniya qo'shish</h2>
+                <p className="text-sm text-muted-foreground">Saqlangandan keyin HR uchun login-parol chiqadi.</p>
               </div>
               <div className="space-y-1.5">
-                <Label>Parol</Label>
-                <Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="auto" />
+                <Label>Kompaniya nomi</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Masalan: Najot Ta'lim" />
               </div>
-            </div>
-            <Button className="w-full bg-gradient-primary text-white shadow-glow">Login-parol yaratish</Button>
-            <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-              HR panel linki: <b className="text-foreground">{panelLink}</b>
-            </div>
-          </form>
+              <div className="space-y-1.5">
+                <Label>Mas'ul HR</Label>
+                <Input value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} placeholder="F.I.O" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Telefon yoki email</Label>
+                <Input value={form.contactInfo} onChange={(e) => setForm({ ...form, contactInfo: e.target.value })} placeholder="+998..." />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Login</Label>
+                  <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="auto" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Parol</Label>
+                  <Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="auto" />
+                </div>
+              </div>
+              <Button className="w-full bg-gradient-primary text-white shadow-glow">Login-parol yaratish</Button>
+              <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                HR panel linki: <b className="text-foreground">{panelLink}</b>
+              </div>
+            </form>
+
+            <form onSubmit={saveAdminCredentials} className="card-elevated p-5 space-y-4">
+              <div>
+                <h2 className="font-display text-xl font-bold">Super admin kirish sozlamalari</h2>
+                <p className="text-sm text-muted-foreground">Admin panelga kirish login va parolini shu yerdan yangilang.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Super admin login</Label>
+                <Input
+                  value={adminForm.username}
+                  onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value })}
+                  placeholder="admin"
+                  autoComplete="username"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Yangi parol</Label>
+                  <Input
+                    type="password"
+                    value={adminForm.password}
+                    onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Parolni tasdiqlash</Label>
+                  <Input
+                    type="password"
+                    value={adminForm.confirmPassword}
+                    onChange={(e) => setAdminForm({ ...adminForm, confirmPassword: e.target.value })}
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+              <Button type="submit" variant="outline" className="w-full">Super adminni yangilash</Button>
+            </form>
+          </div>
 
           <div className="card-elevated overflow-hidden">
             <div className="p-5 border-b border-border flex items-center justify-between gap-3">

@@ -14,7 +14,7 @@ export default function Login() {
   const { login, companies } = useAuth();
   const { employees, tasks, attendance } = useHR();
   const navigate = useNavigate();
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("Admin");
 
@@ -30,7 +30,7 @@ export default function Login() {
   const chooseRole = (nextRole: UserRole) => {
     setRole(nextRole);
     if (nextRole === "Admin") {
-      setUsername("admin");
+      setUsername("");
       setPassword("");
       return;
     }
@@ -134,7 +134,7 @@ export default function Login() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="username">Login</Label>
-              <Input id="username" value={username} onChange={e => setUsername(e.target.value)} placeholder={role === "Admin" ? "admin" : "company-login"} />
+              <Input id="username" value={username} onChange={e => setUsername(e.target.value)} placeholder={role === "Admin" ? "super-admin-login" : "company-login"} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Parol</Label>

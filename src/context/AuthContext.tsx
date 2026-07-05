@@ -1,10 +1,14 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { AuthUser, CompanyAccount, UserRole } from "@/types/hr";
 
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
 const COMPANIES_KEY = "yourhr_companies_clean_v1";
 const USER_KEY = "yourhr_user_clean_v1";
+const ADMIN_CREDENTIALS_KEY = "yourhr_admin_credentials_v1";
+
+interface AdminCredentials {
+  username: string;
+  password: string;
+}
 
 interface LoginResult {
   ok: boolean;
@@ -23,16 +27,38 @@ interface CreateCompanyInput {
 interface AuthContextValue {
   user: AuthUser | null;
   companies: CompanyAccount[];
+  adminCredentials: AdminCredentials;
   login: (username: string, password: string, role: UserRole) => LoginResult;
   logout: () => void;
   createCompany: (input: CreateCompanyInput) => CompanyAccount;
   updateCompanyStatus: (id: string, status: CompanyAccount["status"]) => void;
+  updateAdminCredentials: (credentials: AdminCredentials) => void;
   resetDemoData: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const seedCompanies: CompanyAccount[] = [];
+const defaultAdminCredentials: AdminCredentials = {
+  username: "admin",
+  password: "admin123",
+};
+
+function readAdminCredentials() {
+  const raw = localStorage.getItem(ADMIN_CREDENTIALS_KEY);
+  if (!raw) return defaultAdminCredentials;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<AdminCredentials>;
+    if (!parsed.username || !parsed.password) return defaultAdminCredentials;
+    return {
+      username: parsed.username,
+      password: parsed.password,
+    };
+  } catch {
+    return defaultAdminCredentials;
+  }
+}
 
 function readCompanies() {
   const raw = localStorage.getItem(COMPANIES_KEY);
@@ -81,6 +107,7 @@ function makePassword() {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [companies, setCompanies] = useState<CompanyAccount[]>(readCompanies);
   const [user, setUser] = useState<AuthUser | null>(readUser);
+  const [adminCredentials, setAdminCredentials] = useState<AdminCredentials>(readAdminCredentials);
 
   useEffect(() => {
     localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies));
@@ -91,19 +118,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     else localStorage.removeItem(USER_KEY);
   }, [user]);
 
+  useEffect(() => {
+    localStorage.setItem(ADMIN_CREDENTIALS_KEY, JSON.stringify(adminCredentials));
+  }, [adminCredentials]);
+
   const value = useMemo<AuthContextValue>(() => ({
     user,
     companies,
+    adminCredentials,
     login: (username, password, role) => {
       const cleanUsername = username.trim();
 
       if (role === "Admin") {
-        if (cleanUsername !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+        if (cleanUsername !== adminCredentials.username || password !== adminCredentials.password) {
           return { ok: false, message: "Admin login yoki parol noto'g'ri" };
         }
 
         const adminUser: AuthUser = {
-          email: "admin@yourhr.uz",
+          email: `${adminCredentials.username}@yourhr.local`,
           role: "Admin",
           name: "Super Admin",
           initials: "SA",
@@ -154,10 +186,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateCompanyStatus: (id, status) => {
       setCompanies((prev) => prev.map((company) => company.id === id ? { ...company, status } : company));
     },
+    updateAdminCredentials: (credentials) => {
+      const nextCredentials = {
+        username: credentials.username.trim(),
+        password: credentials.password,
+      };
+
+      setAdminCredentials(nextCredentials);
+      setUser((prev) => {
+        if (!prev || prev.role !== "Admin") return prev;
+        return {
+          ...prev,
+          email: `${nextCredentials.username}@yourhr.local`,
+        };
+      });
+    },
     resetDemoData: () => {
       setCompanies(seedCompanies);
     },
-  }), [companies, user]);
+  }), [adminCredentials, companies, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
