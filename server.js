@@ -26,6 +26,7 @@ const DIST_DIR = path.join(process.cwd(), "dist");
 let telegramOffset = 0;
 const pendingReport = new Set();
 const pendingChat = new Set();
+const pendingAuth = new Map();
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -165,13 +166,19 @@ function mainKeyboard() {
 
 function authHelpText() {
   return [
-    "Assalomu alaykum. Botdan foydalanish uchun HR bergan login va parol bilan kiring:",
-    "",
-    "/login login parol",
-    "",
-    "Masalan:",
-    "/login bekzod bekzod123",
+    "Assalomu alaykum. Botdan foydalanish uchun avval login kiriting.",
+    "Login va parol HR panelda xodim qo'shilganda beriladi.",
   ].join("\n");
+}
+
+async function confirmEmployeeLogin(chatId, employee) {
+  employee.telegramChatId = chatId;
+  saveDb();
+  await telegram("sendMessage", {
+    chat_id: chatId,
+    text: `✅ Tasdiqlandi. ${employee.fullName}, botga muvaffaqiyatli kirdingiz.`,
+    reply_markup: mainKeyboard(),
+  });
 }
 
 async function sendTaskToEmployee(task) {
@@ -289,29 +296,73 @@ async function handleTelegramUpdate(update) {
     const command = parts[0];
 
     if (command === "/start") {
+      const existingEmployee = findEmployeeByChat(chatId);
+      if (existingEmployee) {
+        await telegram("sendMessage", {
+          chat_id: chatId,
+          text: `Siz allaqachon ${existingEmployee.fullName} sifatida kirgansiz.`,
+          reply_markup: mainKeyboard(),
+        });
+        return;
+      }
+
+      pendingAuth.set(chatId, { step: "login" });
       await telegram("sendMessage", {
         chat_id: chatId,
-        text: authHelpText(),
+        text: `${authHelpText()}\n\nLoginni yuboring:`,
+        reply_markup: { remove_keyboard: true },
       });
+      return;
+    }
+
+    const authState = pendingAuth.get(chatId);
+    if (authState?.step === "login") {
+      pendingAuth.set(chatId, { step: "password", login: text });
+      await telegram("sendMessage", {
+        chat_id: chatId,
+        text: "Endi parolni yuboring:",
+        reply_markup: { remove_keyboard: true },
+      });
+      return;
+    }
+
+    if (authState?.step === "password") {
+      const employee = db.employees.find((item) => item.telegramLogin === authState.login && item.telegramPassword === text);
+      if (!employee) {
+        pendingAuth.set(chatId, { step: "login" });
+        await telegram("sendMessage", {
+          chat_id: chatId,
+          text: "❌ Login yoki parol noto'g'ri.\nQayta loginni yuboring:",
+          reply_markup: { remove_keyboard: true },
+        });
+        return;
+      }
+
+      pendingAuth.delete(chatId);
+      await confirmEmployeeLogin(chatId, employee);
       return;
     }
 
     if (command === "/login") {
       const login = parts[1];
       const password = parts[2];
+      if (!login) {
+        pendingAuth.set(chatId, { step: "login" });
+        await telegram("sendMessage", { chat_id: chatId, text: "Loginni yuboring:", reply_markup: { remove_keyboard: true } });
+        return;
+      }
+      if (!password) {
+        pendingAuth.set(chatId, { step: "password", login });
+        await telegram("sendMessage", { chat_id: chatId, text: "Parolni yuboring:", reply_markup: { remove_keyboard: true } });
+        return;
+      }
       const employee = db.employees.find((item) => item.telegramLogin === login && item.telegramPassword === password);
       if (!employee) {
         await telegram("sendMessage", { chat_id: chatId, text: "Login yoki parol noto'g'ri. Qayta urinib ko'ring." });
         return;
       }
 
-      employee.telegramChatId = chatId;
-      saveDb();
-      await telegram("sendMessage", {
-        chat_id: chatId,
-        text: `✅ ${employee.fullName}, botga muvaffaqiyatli kirdingiz.`,
-        reply_markup: mainKeyboard(),
-      });
+      await confirmEmployeeLogin(chatId, employee);
       return;
     }
 

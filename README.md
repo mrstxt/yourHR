@@ -34,10 +34,11 @@ TELEGRAM_BOT_TOKEN=token
 curl -X POST https://your-domain.com/api/telegram/set-webhook
 ```
 
-4. HR panelda xodim qo'shganda Telegram login/parol bering.
+4. HR panelda xodim qo'shganda Telegram login/parol bering. Xodim botda `/start` bosadi, bot avval loginni, keyin parolni so'raydi.
 
 ```text
-/login bekzod bekzod123
+Login: bekzod
+Parol: bekzod123
 ```
 
 Xodim bot orqali:
