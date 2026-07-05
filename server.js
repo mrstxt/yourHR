@@ -41,6 +41,13 @@ const today = () => new Date().toISOString().slice(0, 10);
 const uid = (prefix) => `${prefix}${Date.now()}${crypto.randomBytes(2).toString("hex")}`;
 const timeNow = () => new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", hour12: false });
 
+function webhookUrl() {
+  const base = PUBLIC_URL.trim().replace(/\/$/, "");
+  if (!base) return "";
+  if (base.endsWith("/api/telegram/webhook")) return base;
+  return `${base}/api/telegram/webhook`;
+}
+
 const seed = {
   employees: [],
   tasks: [],
@@ -166,12 +173,12 @@ async function configureTelegramDelivery() {
   await setBotCommands();
 
   if (PUBLIC_URL) {
-    const webhookUrl = `${PUBLIC_URL.replace(/\/$/, "")}/api/telegram/webhook`;
+    const url = webhookUrl();
     const result = await telegram("setWebhook", {
-      url: webhookUrl,
+      url,
       drop_pending_updates: false,
     });
-    console.log(`Telegram webhook: ${webhookUrl}`);
+    console.log(`Telegram webhook: ${url}`);
     console.log(result.ok ? "Telegram webhook enabled" : `Telegram webhook error: ${JSON.stringify(result)}`);
     return;
   }
@@ -623,6 +630,13 @@ async function routeApi(req, res, url) {
     return sendJson(res, 200, { messages: db.chats[employee.id] || [], telegram: telegramResult });
   }
 
+  if (req.method === "GET" && url.pathname === "/api/telegram/webhook") {
+    return sendJson(res, 200, {
+      ok: true,
+      message: "Telegram webhook endpoint is ready. Telegram sends POST requests here.",
+    });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/telegram/webhook") {
     const body = await readBody(req);
     await handleTelegramUpdate(body);
@@ -631,7 +645,7 @@ async function routeApi(req, res, url) {
 
   if (req.method === "POST" && url.pathname === "/api/telegram/set-webhook") {
     if (!PUBLIC_URL) return sendJson(res, 400, { error: "PUBLIC_URL env kerak" });
-    const result = await telegram("setWebhook", { url: `${PUBLIC_URL.replace(/\/$/, "")}/api/telegram/webhook` });
+    const result = await telegram("setWebhook", { url: webhookUrl() });
     return sendJson(res, 200, result);
   }
 
@@ -639,6 +653,7 @@ async function routeApi(req, res, url) {
     const result = await telegram("getWebhookInfo", {});
     return sendJson(res, 200, {
       publicUrl: PUBLIC_URL || null,
+      webhookUrl: webhookUrl() || null,
       hasToken: Boolean(BOT_TOKEN),
       webhook: result,
     });
