@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useHR } from "@/context/HRContext";
 import { UserRole } from "@/types/hr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,17 +11,27 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, companies } = useAuth();
+  const { employees, tasks, attendance } = useHR();
   const navigate = useNavigate();
   const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("Admin");
+
+  const presentCount = attendance.filter((item) => item.status !== "Kelmagan").length;
+  const attendancePct = attendance.length ? Math.round((presentCount / attendance.length) * 100) : 0;
+  const liveStats = [
+    { k: String(companies.length), v: "Kompaniya" },
+    { k: String(employees.length), v: "Xodim" },
+    { k: String(tasks.length), v: "Vazifa" },
+    { k: `${attendancePct}%`, v: "Davomat" },
+  ];
 
   const chooseRole = (nextRole: UserRole) => {
     setRole(nextRole);
     if (nextRole === "Admin") {
       setUsername("admin");
-      setPassword("admin123");
+      setPassword("");
       return;
     }
 
@@ -66,12 +77,8 @@ export default function Login() {
           <p className="text-white/70 max-w-md">
             Xodimlar, vazifalar, davomat va moliyaviy jarayonlarni yagona premium platformada boshqaring.
           </p>
-          <div className="grid grid-cols-3 gap-4 max-w-md">
-            {[
-              { k: "250+", v: "Xodim" },
-              { k: "1.2k", v: "Vazifa" },
-              { k: "98%", v: "Davomat" },
-            ].map(s => (
+          <div className="grid grid-cols-4 gap-3 max-w-lg">
+            {liveStats.map(s => (
               <div key={s.v} className="rounded-xl bg-white/5 border border-white/10 p-4 backdrop-blur">
                 <div className="font-display text-2xl font-bold">{s.k}</div>
                 <div className="text-xs text-white/60">{s.v}</div>
@@ -138,10 +145,6 @@ export default function Login() {
           <Button type="submit" className="w-full h-11 bg-gradient-primary text-white shadow-glow hover:opacity-95">
             Tizimga kirish
           </Button>
-
-          <div className="text-center text-xs text-muted-foreground">
-            Admin: <b>admin / admin123</b>. HR login-parol super admin tomonidan yaratiladi.
-          </div>
         </form>
       </div>
     </div>
