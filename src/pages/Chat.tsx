@@ -39,22 +39,31 @@ export default function Chat() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-thin">
-          {filtered.map(e => (
-            <button
-              key={e.id}
-              onClick={() => setSelectedId(e.id)}
-              className={cn(
-                "w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition text-left border-b border-border last:border-0",
-                selectedId === e.id && "bg-accent"
-              )}
-            >
-              <AvatarBubble initials={e.avatarInitials} />
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm truncate">{e.fullName}</div>
-                <div className="text-xs text-muted-foreground truncate">{e.position}</div>
-              </div>
-            </button>
-          ))}
+          {filtered.map(e => {
+            const employeeMessages = chats[e.id] ?? [];
+            const lastMessage = employeeMessages[employeeMessages.length - 1];
+            const hasIncoming = !!lastMessage && !lastMessage.fromMe && selectedId !== e.id;
+
+            return (
+              <button
+                key={e.id}
+                onClick={() => setSelectedId(e.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition text-left border-b border-border last:border-0",
+                  selectedId === e.id && "bg-accent"
+                )}
+              >
+                <AvatarBubble initials={e.avatarInitials} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm truncate">{e.fullName}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {lastMessage ? lastMessage.text : e.position}
+                  </div>
+                </div>
+                {hasIncoming && <span className="h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-background" />}
+              </button>
+            );
+          })}
         </div>
       </div>
 

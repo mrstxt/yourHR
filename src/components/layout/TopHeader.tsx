@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { AvatarBubble } from "@/components/AvatarBubble";
 import { useAuth } from "@/context/AuthContext";
 import { useHR } from "@/context/HRContext";
+import { useNavigate } from "react-router-dom";
 
 interface TopHeaderProps {
   title: string;
@@ -18,15 +19,53 @@ interface TopHeaderProps {
 
 export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, sidebarCollapsed }: TopHeaderProps) {
   const { user, logout } = useAuth();
-  const { reports, tickets, tasks } = useHR();
+  const { employees, reports, tickets, chats } = useHR();
+  const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
 
+  const chatNotifications = Object.entries(chats)
+    .map(([employeeId, messages]) => {
+      const lastIncoming = [...messages].reverse().find((message) => !message.fromMe);
+      const employee = employees.find((item) => item.id === employeeId);
+      if (!lastIncoming || !employee) return null;
+      return {
+        id: `chat-${lastIncoming.id}`,
+        title: "Yangi chat xabari",
+        text: `${employee.fullName}: ${lastIncoming.text}`,
+        time: lastIncoming.time,
+        path: "/chat",
+      };
+    })
+    .filter(Boolean);
+
+  const reportNotifications = reports
+    .filter((report) => report.status === "Kutilmoqda")
+    .map((report) => ({
+      id: `report-${report.id}`,
+      title: "Kunlik hisobot",
+      text: `${report.employeeName} yangi hisobot yubordi`,
+      time: report.date,
+      path: "/reports",
+    }));
+
+  const supportNotifications = tickets
+    .filter((ticket) => ticket.status !== "Hal qilindi")
+    .map((ticket) => ({
+      id: `support-${ticket.id}`,
+      title: "Support so'rovi",
+      text: `${ticket.title}${ticket.employeeName ? ` · ${ticket.employeeName}` : ""}`,
+      time: ticket.createdAt,
+      path: "/support",
+    }));
+
   const notifications = [
-    ...reports.filter(r => r.status === "Kutilmoqda").slice(0, 3).map(r => ({ id: r.id, text: `${r.employeeName} yangi hisobot yubordi`, time: r.date })),
-    ...tickets.filter(t => t.status === "Ochiq").slice(0, 2).map(t => ({ id: t.id, text: `Yangi ticket: ${t.title}`, time: t.createdAt })),
-    ...tasks.filter(t => t.status === "Kutilmoqda").slice(0, 2).map(t => ({ id: t.id, text: `Vazifa kutmoqda: ${t.title}`, time: t.deadline })),
-  ];
+    ...chatNotifications,
+    ...reportNotifications,
+    ...supportNotifications,
+  ].slice(0, 12);
+
+  const notificationCount = chatNotifications.length + reportNotifications.length + supportNotifications.length;
 
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border">
@@ -54,19 +93,34 @@ export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, s
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
-              {notifications.length > 0 && <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-danger ring-2 ring-background" />}
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 rounded-full bg-danger px-1 text-[10px] font-bold text-white ring-2 ring-background flex items-center justify-center">
+                  {notificationCount > 9 ? "9+" : notificationCount}
+                </span>
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 p-0">
-            <div className="p-3 border-b border-border font-semibold text-sm">Bildirishnomalar</div>
+            <div className="p-3 border-b border-border">
+              <div className="font-semibold text-sm">Bildirishnomalar</div>
+              <div className="text-[11px] text-muted-foreground mt-1">
+                Chat: {chatNotifications.length} · Hisobot: {reportNotifications.length} · Support: {supportNotifications.length}
+              </div>
+            </div>
             <div className="max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="p-6 text-sm text-muted-foreground text-center">Yangi bildirishnoma yo'q</div>
               ) : notifications.map(n => (
-                <div key={n.id} className="px-3 py-2.5 border-b border-border last:border-0 hover:bg-muted/50 text-sm">
-                  <div className="font-medium">{n.text}</div>
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => navigate(n.path)}
+                  className="w-full px-3 py-2.5 border-b border-border last:border-0 hover:bg-muted/50 text-sm text-left"
+                >
+                  <div className="text-[11px] font-semibold uppercase text-primary">{n.title}</div>
+                  <div className="font-medium line-clamp-2">{n.text}</div>
                   <div className="text-[11px] text-muted-foreground">{n.time}</div>
-                </div>
+                </button>
               ))}
             </div>
           </PopoverContent>
