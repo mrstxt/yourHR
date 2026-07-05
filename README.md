@@ -1,0 +1,68 @@
+# yourHR Pro
+
+Super admin, HR panel va Telegram bot integratsiyasi bor HR boshqaruv tizimi.
+
+## Ishga tushirish
+
+```bash
+npm install
+npm run build
+npm start
+```
+
+Local URL: `http://localhost:3000`
+
+## Loginlar
+
+- Super admin: `admin / admin123`
+- Demo HR: `demo-company / demo12345`
+
+## Telegram bot
+
+1. BotFather orqali bot yarating va token oling.
+2. `.env.example` asosida env sozlang:
+
+```bash
+PORT=3000
+PUBLIC_URL=https://your-domain.com
+TELEGRAM_BOT_TOKEN=token
+```
+
+3. Server ishga tushgandan keyin webhook ulang:
+
+```bash
+curl -X POST https://your-domain.com/api/telegram/set-webhook
+```
+
+4. HR panelda xodim profilini oching va bot ulanish kodini xodimga yuboring:
+
+```text
+/start e2
+```
+
+Xodim bot orqali:
+- `/tasks` bilan vazifalarini ko'radi
+- inline tugmalar bilan vazifa statusini yangilaydi
+- `hisobot: bugun ...` yozib kunlik hisobot yuboradi
+
+## Deploy
+
+Bu loyiha doimiy backend va Telegram webhook talab qiladi. Render, Railway, Fly.io yoki VPS tavsiya qilinadi.
+
+Build command:
+
+```bash
+npm install && npm run build
+```
+
+Start command:
+
+```bash
+npm start
+```
+
+Environment variables:
+
+- `PORT`
+- `PUBLIC_URL`
+- `TELEGRAM_BOT_TOKEN`
