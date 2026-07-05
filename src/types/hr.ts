@@ -31,6 +31,7 @@ export interface Employee {
   avatarInitials: string;
   phone?: string;
   email?: string;
+  cardNumber?: string;
   joinedAt?: string;
   telegramChatId?: string;
   telegramLogin?: string;

@@ -1,49 +1,181 @@
+import { useMemo, useState } from "react";
 import { useHR } from "@/context/HRContext";
 import { AvatarBubble } from "@/components/AvatarBubble";
-import { formatUZS } from "@/lib/format";
-import { Wallet, Gift, AlertOctagon, Coins } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { formatUZS, isOverdue } from "@/lib/format";
+import { AlertOctagon, Banknote, Bell, Building2, CheckCircle2, Coins, Gift, Home, ReceiptText, TrendingUp, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+const FINANCE_KEY = "yourhr_finance_settings_v1";
+const PAID_KEY = "yourhr_paid_payroll_v1";
+
+interface FinanceSettings {
+  companyIncome: number;
+  utilities: number;
+  officeRent: number;
+  extraExpenses: number;
+  marketingExpenses: number;
+}
+
+const defaultFinance: FinanceSettings = {
+  companyIncome: 0,
+  utilities: 0,
+  officeRent: 0,
+  extraExpenses: 0,
+  marketingExpenses: 0,
+};
+
+function readFinance() {
+  try {
+    return { ...defaultFinance, ...JSON.parse(localStorage.getItem(FINANCE_KEY) || "{}") };
+  } catch {
+    return defaultFinance;
+  }
+}
+
+function readPaid() {
+  try {
+    return new Set<string>(JSON.parse(localStorage.getItem(PAID_KEY) || "[]"));
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function isSalesEmployee(position: string, type?: string) {
+  const normalized = position.toLowerCase();
+  return type === "sales" || normalized.includes("sotuv") || normalized.includes("sales");
+}
 
 export default function Finance() {
-  const { employees } = useHR();
+  const { employees, attendance, tasks, reports, rules } = useHR();
+  const [settings, setSettings] = useState<FinanceSettings>(readFinance);
+  const [paidIds, setPaidIds] = useState<Set<string>>(readPaid);
 
-  const rows = employees.map(e => {
-    const isSales = e.compensationType === "sales" || e.position.toLowerCase().includes("sotuv") || e.position.toLowerCase().includes("sales");
-    const incentive = isSales
-      ? Math.round((e.monthlySalesAmount ?? 0) * ((e.salesKpiPercent ?? e.kpi ?? 0) / 100))
-      : Number(e.monthlyBonus ?? 0);
-    const fine = 0;
-    return { ...e, isSales, incentive, fine, total: e.salary + incentive - fine };
-  });
+  const saveSettings = (next: FinanceSettings) => {
+    setSettings(next);
+    localStorage.setItem(FINANCE_KEY, JSON.stringify(next));
+  };
 
-  const totals = rows.reduce((acc, r) => ({
-    salary: acc.salary + r.salary,
-    bonus: acc.bonus + r.incentive,
-    fine: acc.fine + r.fine,
-    total: acc.total + r.total,
-  }), { salary: 0, bonus: 0, fine: 0, total: 0 });
+  const markPaid = (employeeId: string) => {
+    const next = new Set(paidIds);
+    next.add(employeeId);
+    setPaidIds(next);
+    localStorage.setItem(PAID_KEY, JSON.stringify(Array.from(next)));
+  };
+
+  const markAllPaid = () => {
+    const next = new Set(employees.map((employee) => employee.id));
+    setPaidIds(next);
+    localStorage.setItem(PAID_KEY, JSON.stringify(Array.from(next)));
+    toast.success("Barcha xodimlar oyligi tarqatildi deb belgilandi");
+  };
+
+  const notifyPayroll = async () => {
+    try {
+      const response = await fetch("/api/payroll/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "💳 Oylik hisob-kitobi tayyorlanmoqda. Karta raqamingiz va davomat holatingiz HR panelda tekshirilmoqda.",
+        }),
+      });
+      const data = await response.json();
+      toast.success(`Bildirishnoma yuborildi: ${data.sent ?? 0} xodim`);
+    } catch {
+      toast.info("Oylik tarqatish bildirishnomasi tayyor");
+    }
+  };
+
+  const rows = useMemo(() => employees.map((employee) => {
+    const employeeAttendance = attendance.filter((item) => item.employeeId === employee.id);
+    const lateCount = employeeAttendance.filter((item) => item.status === "Kechikdi").length;
+    const absentCount = employeeAttendance.filter((item) => item.status === "Kelmagan").length;
+    const fine = lateCount * rules.lateFine + absentCount * rules.lateFine * 2;
+
+    const employeeTasks = tasks.filter((task) => task.employeeId === employee.id);
+    const completedTasks = employeeTasks.filter((task) => task.status === "Bajarildi").length;
+    const overdueTasks = employeeTasks.filter((task) => task.status !== "Bajarildi" && isOverdue(task.deadline)).length;
+    const taskCompletion = employeeTasks.length ? completedTasks / employeeTasks.length : 1;
+
+    const employeeReports = reports.filter((report) => report.employeeId === employee.id);
+    const approvedReports = employeeReports.filter((report) => report.status === "Tasdiqlangan").length;
+    const reportScore = employeeReports.length ? approvedReports / employeeReports.length : 1;
+
+    const presentDays = employeeAttendance.filter((item) => item.status !== "Kelmagan").length;
+    const attendanceScore = employeeAttendance.length ? presentDays / employeeAttendance.length : 1;
+
+    const score = Math.round(Math.max(0, (attendanceScore * 0.35 + taskCompletion * 0.45 + reportScore * 0.2 - overdueTasks * 0.08)) * 100);
+    const salesEmployee = isSalesEmployee(employee.position, employee.compensationType);
+    const salesBonus = salesEmployee ? Math.round((employee.monthlySalesAmount ?? 0) * ((employee.salesKpiPercent ?? employee.kpi ?? 0) / 100)) : 0;
+    const suggestedBonus = !salesEmployee && score >= 90 ? Math.round(employee.salary * 0.12) : !salesEmployee && score >= 75 ? Math.round(employee.salary * 0.07) : 0;
+    const manualBonus = Number(employee.monthlyBonus ?? 0);
+    const bonus = salesEmployee ? salesBonus : Math.max(manualBonus, suggestedBonus);
+    const total = Math.max(0, employee.salary + bonus - fine);
+
+    return {
+      ...employee,
+      salesEmployee,
+      lateCount,
+      absentCount,
+      overdueTasks,
+      score,
+      suggestedBonus,
+      bonus,
+      fine,
+      total,
+      paid: paidIds.has(employee.id),
+    };
+  }), [employees, attendance, tasks, reports, rules, paidIds]);
+
+  const payrollTotal = rows.reduce((sum, row) => sum + row.total, 0);
+  const salaryTotal = rows.reduce((sum, row) => sum + row.salary, 0);
+  const bonusTotal = rows.reduce((sum, row) => sum + row.bonus, 0);
+  const fineTotal = rows.reduce((sum, row) => sum + row.fine, 0);
+  const companyExpenses = settings.utilities + settings.officeRent + settings.extraExpenses + settings.marketingExpenses;
+  const totalExpenses = payrollTotal + companyExpenses;
+  const profit = settings.companyIncome - totalExpenses;
+  const unpaidCount = rows.filter((row) => !row.paid).length;
+  const payoutReminder = new Date().getDate() >= 25 && unpaidCount > 0;
 
   const cards = [
-    { label: "Jami maosh", value: totals.salary, icon: Wallet, gradient: "from-indigo-500 to-blue-500" },
-    { label: "Umumiy bonus", value: totals.bonus, icon: Gift, gradient: "from-emerald-500 to-teal-500" },
-    { label: "Umumiy jarima", value: totals.fine, icon: AlertOctagon, gradient: "from-rose-500 to-pink-500" },
-    { label: "Umumiy xarajat", value: totals.total, icon: Coins, gradient: "from-amber-500 to-orange-500" },
+    { label: "Kompaniya daromadi", value: settings.companyIncome, icon: TrendingUp, gradient: "from-emerald-500 to-teal-500" },
+    { label: "Oylik fondi", value: payrollTotal, icon: Wallet, gradient: "from-indigo-500 to-blue-500" },
+    { label: "Umumiy xarajat", value: totalExpenses, icon: ReceiptText, gradient: "from-amber-500 to-orange-500" },
+    { label: "Sof foyda", value: profit, icon: Coins, gradient: profit >= 0 ? "from-sky-500 to-blue-500" : "from-rose-500 to-pink-500" },
   ];
 
   return (
     <div className="space-y-5">
+      {payoutReminder && (
+        <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-3">
+            <Bell className="h-5 w-5 text-warning" />
+            <div>
+              <div className="font-semibold">Oylik tarqatish vaqti yaqinlashdi</div>
+              <div className="text-sm text-muted-foreground">{unpaidCount} ta xodim oyligi hali tarqatilmagan.</div>
+            </div>
+          </div>
+          <Button className="sm:ml-auto bg-gradient-primary text-white" onClick={notifyPayroll}>
+            Bildirishnoma chiqarish
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        {cards.map(c => {
-          const Icon = c.icon;
+        {cards.map((card) => {
+          const Icon = card.icon;
           return (
-            <div key={c.label} className="kpi-card">
-              <div className={cn("absolute -top-10 -right-10 h-32 w-32 rounded-full bg-gradient-to-br opacity-10 blur-2xl", c.gradient)} />
+            <div key={card.label} className="kpi-card">
+              <div className={cn("absolute -top-10 -right-10 h-32 w-32 rounded-full bg-gradient-to-br opacity-10 blur-2xl", card.gradient)} />
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-sm text-muted-foreground">{c.label}</div>
-                  <div className="font-display text-xl xl:text-2xl font-bold mt-2">{formatUZS(c.value)}</div>
+                  <div className="text-sm text-muted-foreground">{card.label}</div>
+                  <div className="font-display text-xl xl:text-2xl font-bold mt-2">{formatUZS(card.value)}</div>
                 </div>
-                <div className={cn("h-10 w-10 rounded-xl bg-gradient-to-br text-white flex items-center justify-center", c.gradient)}>
+                <div className={cn("h-10 w-10 rounded-xl bg-gradient-to-br text-white flex items-center justify-center", card.gradient)}>
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
@@ -52,46 +184,111 @@ export default function Finance() {
         })}
       </div>
 
-      <div className="card-elevated overflow-hidden">
-        <div className="p-4 border-b border-border">
-          <h3 className="font-display font-bold">Maosh hisob-kitobi</h3>
-          <p className="text-xs text-muted-foreground">Sotuv xodimlari uchun sotuvdan KPI, boshqa xodimlar uchun oy oxiri bonus</p>
+      <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-5">
+        <div className="card-elevated p-5 space-y-4">
+          <div>
+            <h3 className="font-display font-bold text-lg">Kompaniya moliyasi</h3>
+            <p className="text-xs text-muted-foreground">Daromad va qo'shimcha xarajatlarni kiriting</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Kompaniya umumiy daromadi</Label>
+            <Input type="number" value={settings.companyIncome} onChange={(e) => saveSettings({ ...settings, companyIncome: +e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Kommunalka</Label>
+              <Input type="number" value={settings.utilities} onChange={(e) => saveSettings({ ...settings, utilities: +e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ofis arendasi</Label>
+              <Input type="number" value={settings.officeRent} onChange={(e) => saveSettings({ ...settings, officeRent: +e.target.value })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Marketing</Label>
+              <Input type="number" value={settings.marketingExpenses} onChange={(e) => saveSettings({ ...settings, marketingExpenses: +e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Qo'shimcha rasxod</Label>
+              <Input type="number" value={settings.extraExpenses} onChange={(e) => saveSettings({ ...settings, extraExpenses: +e.target.value })} />
+            </div>
+          </div>
+          <div className="rounded-xl bg-muted/50 border border-border p-4 space-y-2 text-sm">
+            <div className="flex justify-between"><span>Maoshlar</span><b>{formatUZS(salaryTotal)}</b></div>
+            <div className="flex justify-between"><span>Bonus/KPI</span><b className="text-success">{formatUZS(bonusTotal)}</b></div>
+            <div className="flex justify-between"><span>Jarimalar</span><b className="text-danger">{formatUZS(fineTotal)}</b></div>
+            <div className="flex justify-between"><span>Qo'shimcha xarajatlar</span><b>{formatUZS(companyExpenses)}</b></div>
+          </div>
+          <Button className="w-full bg-gradient-primary text-white" onClick={markAllPaid}>
+            <Banknote className="h-4 w-4 mr-2" /> Barcha oyliklarni tarqatish
+          </Button>
         </div>
-        <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="text-left font-medium py-3 px-5">Xodim</th>
-                <th className="text-left font-medium py-3 px-3">Maosh</th>
-                <th className="text-left font-medium py-3 px-3">Hisob turi</th>
-                <th className="text-left font-medium py-3 px-3">Rag'bat</th>
-                <th className="text-left font-medium py-3 px-3">Jarima</th>
-                <th className="text-right font-medium py-3 px-5">Jami</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(r => (
-                <tr key={r.id} className="border-t border-border hover:bg-muted/30">
-                  <td className="py-3 px-5">
-                    <div className="flex items-center gap-3">
-                      <AvatarBubble initials={r.avatarInitials} size="sm" />
-                      <div>
-                        <div className="font-semibold">{r.fullName}</div>
-                        <div className="text-xs text-muted-foreground">{r.position}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-3">{formatUZS(r.salary)}</td>
-                  <td className="py-3 px-3 font-semibold">
-                    {r.isSales ? `Sotuvdan ${r.salesKpiPercent ?? r.kpi ?? 0}%` : "Oy oxiri bonus"}
-                  </td>
-                  <td className="py-3 px-3 text-success">{r.incentive ? "+" + formatUZS(r.incentive) : "—"}</td>
-                  <td className="py-3 px-3 text-danger">{r.fine ? "−" + formatUZS(r.fine) : "—"}</td>
-                  <td className="py-3 px-5 text-right font-bold">{formatUZS(r.total)}</td>
+
+        <div className="card-elevated overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <h3 className="font-display font-bold">Oylik tarqatish hisoboti</h3>
+            <p className="text-xs text-muted-foreground">Karta raqami, kelib-ketish, jarima, sotuv KPI va bonus takliflari bilan</p>
+          </div>
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="text-left font-medium py-3 px-5">Xodim</th>
+                  <th className="text-left font-medium py-3 px-3">Karta</th>
+                  <th className="text-left font-medium py-3 px-3">Maosh</th>
+                  <th className="text-left font-medium py-3 px-3">Bonus/KPI</th>
+                  <th className="text-left font-medium py-3 px-3">Jarima</th>
+                  <th className="text-left font-medium py-3 px-3">Analiz</th>
+                  <th className="text-right font-medium py-3 px-5">To'lov</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">Hali xodim qo'shilmagan</td></tr>}
+                {rows.map((row) => (
+                  <tr key={row.id} className="border-t border-border hover:bg-muted/30">
+                    <td className="py-3 px-5">
+                      <div className="flex items-center gap-3">
+                        <AvatarBubble initials={row.avatarInitials} size="sm" />
+                        <div>
+                          <div className="font-semibold">{row.fullName}</div>
+                          <div className="text-xs text-muted-foreground">{row.position}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 font-mono text-xs">{row.cardNumber || "Kiritilmagan"}</td>
+                    <td className="py-3 px-3">{formatUZS(row.salary)}</td>
+                    <td className="py-3 px-3">
+                      <div className="font-semibold text-success">{row.bonus ? "+" + formatUZS(row.bonus) : "—"}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {row.salesEmployee
+                          ? `Sotuv: ${formatUZS(row.monthlySalesAmount ?? 0)} × ${row.salesKpiPercent ?? row.kpi ?? 0}%`
+                          : row.suggestedBonus ? `Taklif: ${formatUZS(row.suggestedBonus)}` : "Bonus taklif yo'q"}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="font-semibold text-danger">{row.fine ? "−" + formatUZS(row.fine) : "—"}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {row.lateCount} kechikish · {row.absentCount} kelmagan
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="font-semibold">{row.score}%</div>
+                      <div className="text-[11px] text-muted-foreground">{row.overdueTasks} kechikkan vazifa</div>
+                    </td>
+                    <td className="py-3 px-5 text-right">
+                      <div className="font-bold">{formatUZS(row.total)}</div>
+                      {row.paid ? (
+                        <div className="inline-flex items-center gap-1 text-xs text-success mt-1"><CheckCircle2 className="h-3 w-3" /> To'landi</div>
+                      ) : (
+                        <Button size="sm" variant="outline" className="mt-1" onClick={() => markPaid(row.id)}>Tarqatildi</Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

@@ -27,6 +27,7 @@ const empty: FormData = {
   status: "Faol",
   phone: "",
   email: "",
+  cardNumber: "",
   telegramLogin: "",
   telegramPassword: "",
 };
@@ -149,7 +150,7 @@ export default function Employees() {
                       <div>
                         <div className="font-semibold">{e.fullName}</div>
                         <div className="text-xs text-muted-foreground">
-                          {e.email} · TG: {e.telegramLogin || "-"} {e.telegramChatId ? "· ulangan" : "· ulanmagan"}
+                          {e.email} · Karta: {e.cardNumber || "-"} · TG: {e.telegramLogin || "-"} {e.telegramChatId ? "· ulangan" : "· ulanmagan"}
                         </div>
                       </div>
                     </div>
@@ -239,6 +240,7 @@ export default function Employees() {
             </div>
             <div className="space-y-1.5"><Label>Telefon</Label><Input value={form.phone ?? ""} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Email</Label><Input value={form.email ?? ""} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Karta raqami</Label><Input value={form.cardNumber ?? ""} onChange={e => setForm({ ...form, cardNumber: e.target.value })} placeholder="8600 0000 0000 0000" /></div>
             <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
               <div>
                 <div className="text-sm font-semibold">Telegram bot login</div>
@@ -312,6 +314,10 @@ export default function Employees() {
                   <div className="text-xs text-muted-foreground mt-2">
                     Holat: {detail.telegramChatId ? `ulangan (${detail.telegramChatId})` : "hali ulanmagan"}
                   </div>
+                </div>
+                <div className="rounded-xl bg-muted/50 p-4">
+                  <div className="text-xs text-muted-foreground">Oylik kartasi</div>
+                  <div className="font-mono text-sm font-semibold">{detail.cardNumber || "Kiritilmagan"}</div>
                 </div>
                 <div>
                   <div className="font-semibold mb-2 text-sm">Vazifalar ({detailTasks.length})</div>

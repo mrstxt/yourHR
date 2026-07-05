@@ -553,6 +553,24 @@ async function routeApi(req, res, url) {
     return sendJson(res, 201, { task, telegram: telegramResult });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/payroll/notify") {
+    const body = await readBody(req);
+    const text = body.message || "💳 Oylik hisob-kitobi tayyorlanmoqda. Iltimos, HR xabarlarini kuzatib boring.";
+    const results = [];
+
+    for (const employee of db.employees) {
+      if (!employee.telegramChatId) continue;
+      const result = await telegram("sendMessage", {
+        chat_id: employee.telegramChatId,
+        text,
+        reply_markup: mainKeyboard(),
+      });
+      results.push({ employeeId: employee.id, ok: result.ok });
+    }
+
+    return sendJson(res, 200, { sent: results.length, results });
+  }
+
   const taskStatus = url.pathname.match(/^\/api\/tasks\/([^/]+)\/status$/);
   if (req.method === "PATCH" && taskStatus) {
     const body = await readBody(req);
