@@ -3,11 +3,27 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 
+function loadEnvFile() {
+  const envPath = path.join(process.cwd(), ".env");
+  if (!fs.existsSync(envPath)) return;
+
+  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+    const [key, ...valueParts] = trimmed.split("=");
+    if (!process.env[key]) process.env[key] = valueParts.join("=").trim();
+  }
+}
+
+loadEnvFile();
+
 const PORT = Number(process.env.PORT || 3000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const PUBLIC_URL = process.env.PUBLIC_URL || "";
 const DATA_FILE = path.join(process.cwd(), "yourhr-data.json");
 const DIST_DIR = path.join(process.cwd(), "dist");
+let telegramOffset = 0;
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -91,6 +107,16 @@ async function telegram(method, body) {
   return response.json();
 }
 
+async function setBotCommands() {
+  await telegram("setMyCommands", {
+    commands: [
+      { command: "start", description: "Xodim sifatida botga ulanish" },
+      { command: "tasks", description: "Menga biriktirilgan vazifalar" },
+      { command: "help", description: "Botdan foydalanish" },
+    ],
+  });
+}
+
 async function sendTaskToEmployee(task) {
   const employee = db.employees.find((item) => item.id === task.employeeId);
   if (!employee?.telegramChatId) return { ok: false, skipped: true };
@@ -163,6 +189,14 @@ async function handleTelegramUpdate(update) {
       return;
     }
 
+    if (command === "/help") {
+      await telegram("sendMessage", {
+        chat_id: chatId,
+        text: "Buyruqlar:\n/tasks - vazifalar\nhisobot: matn - kunlik hisobot yuborish\n\nVazifa kelganda tugmalar orqali statusni yangilang.",
+      });
+      return;
+    }
+
     if (text.toLowerCase().startsWith("hisobot:")) {
       db.reports.unshift({
         id: uid("r"),
@@ -194,6 +228,26 @@ async function handleTelegramUpdate(update) {
       await telegram("answerCallbackQuery", { callback_query_id: update.callback_query.id, text: `Holat: ${status}` });
       await telegram("sendMessage", { chat_id: chatId, text: `✅ "${task.title}" holati yangilandi: ${status}` });
     }
+  }
+}
+
+async function pollTelegram() {
+  if (!BOT_TOKEN || PUBLIC_URL) return;
+
+  try {
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?timeout=25&offset=${telegramOffset}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!data.ok) return;
+
+    for (const update of data.result) {
+      telegramOffset = update.update_id + 1;
+      await handleTelegramUpdate(update);
+    }
+  } catch (error) {
+    console.error("Telegram polling error:", error.message);
+  } finally {
+    setTimeout(pollTelegram, 1000);
   }
 }
 
@@ -287,4 +341,11 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`yourHR server: http://localhost:${PORT}`);
   console.log(BOT_TOKEN ? "Telegram bot token loaded" : "Telegram bot token not set");
+  if (BOT_TOKEN) {
+    setBotCommands().catch((error) => console.error("Telegram commands error:", error.message));
+    if (!PUBLIC_URL) {
+      console.log("Telegram polling mode enabled");
+      pollTelegram();
+    }
+  }
 });
