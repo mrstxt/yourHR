@@ -5,7 +5,7 @@ import { ReportStatusBadge } from "@/components/StatusBadges";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { CheckCircle2, XCircle, Download } from "lucide-react";
+import { CheckCircle2, XCircle, Download, Image as ImageIcon } from "lucide-react";
 import { ReportStatus, DailyReport } from "@/types/hr";
 import { toast } from "sonner";
 
@@ -63,6 +63,11 @@ export default function Reports() {
               <ReportStatusBadge status={r.status} />
             </div>
             <p className="text-sm text-muted-foreground line-clamp-3">{r.content}</p>
+            {!!r.attachments?.length && (
+              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
+                <ImageIcon className="h-3.5 w-3.5" /> {r.attachments.length} ta rasm
+              </div>
+            )}
           </button>
         ))}
       </div>
@@ -78,6 +83,22 @@ export default function Reports() {
               <div className="py-6 space-y-4">
                 <ReportStatusBadge status={preview.status} />
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{preview.content}</p>
+                {!!preview.attachments?.length && (
+                  <div className="grid grid-cols-1 gap-3">
+                    {preview.attachments.map((attachment) => (
+                      <figure key={attachment.fileId} className="rounded-xl border border-border bg-muted/30 overflow-hidden">
+                        <img
+                          src={`/api/telegram/photo/${encodeURIComponent(attachment.fileId)}`}
+                          alt={attachment.caption || "Hisobot rasmi"}
+                          className="w-full max-h-80 object-contain bg-background"
+                        />
+                        {attachment.caption && (
+                          <figcaption className="px-3 py-2 text-xs text-muted-foreground">{attachment.caption}</figcaption>
+                        )}
+                      </figure>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button onClick={() => setStatus(preview.id, "Tasdiqlangan")} className="bg-success text-success-foreground hover:bg-success/90 flex-1">

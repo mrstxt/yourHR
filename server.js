@@ -305,7 +305,7 @@ function upsertAttendance(employee, patch) {
   return row;
 }
 
-function addEmployeeReport(employee, content) {
+function addEmployeeReport(employee, content, attachments = []) {
   db.reports.unshift({
     id: uid("r"),
     employeeId: employee.id,
@@ -313,7 +313,20 @@ function addEmployeeReport(employee, content) {
     content,
     date: today(),
     status: "Kutilmoqda",
+    attachments,
   });
+}
+
+function messagePhotoAttachment(message) {
+  const photos = message.photo || [];
+  if (!photos.length) return null;
+
+  const largestPhoto = photos[photos.length - 1];
+  return {
+    type: "photo",
+    fileId: largestPhoto.file_id,
+    caption: message.caption || "",
+  };
 }
 
 function addEmployeeChat(employee, text, fromMe = false) {
@@ -326,7 +339,8 @@ function addEmployeeChat(employee, text, fromMe = false) {
 async function handleTelegramUpdate(update) {
   if (update.message) {
     const chatId = String(update.message.chat.id);
-    const text = String(update.message.text || "").trim();
+    const photoAttachment = messagePhotoAttachment(update.message);
+    const text = String(update.message.text || update.message.caption || "").trim();
     const parts = text.split(/\s+/);
     const command = parts[0];
 
@@ -409,7 +423,8 @@ async function handleTelegramUpdate(update) {
 
     if (pendingReport.has(chatId)) {
       pendingReport.delete(chatId);
-      addEmployeeReport(employee, text);
+      const content = text || (photoAttachment ? "Rasmli hisobot yuborildi." : "");
+      addEmployeeReport(employee, content, photoAttachment ? [photoAttachment] : []);
       saveDb();
       await telegram("sendMessage", { chat_id: chatId, text: "✅ Kunlik hisobot HR panelga yuborildi.", reply_markup: mainKeyboard() });
       return;
@@ -446,7 +461,7 @@ async function handleTelegramUpdate(update) {
       saveDb();
       await telegram("sendMessage", {
         chat_id: chatId,
-        text: "🏁 Ketish vaqtingiz saqlandi.\n\nBugun ishlar va sizga berilgan vazifalar qilindimi? Kunlik hisobotni yozing:",
+        text: "🏁 Ketish vaqtingiz saqlandi.\n\nBugun ishlar va sizga berilgan vazifalar qilindimi? Kunlik hisobotni yozing yoki rasm yuboring:",
         reply_markup: { remove_keyboard: true },
       });
       return;
@@ -456,7 +471,7 @@ async function handleTelegramUpdate(update) {
       pendingReport.add(chatId);
       await telegram("sendMessage", {
         chat_id: chatId,
-        text: "Bugungi ishlaringiz bo'yicha hisobot yozing:",
+        text: "Bugungi ishlaringiz bo'yicha hisobot yozing yoki rasm yuboring:",
         reply_markup: { remove_keyboard: true },
       });
       return;
@@ -482,14 +497,7 @@ async function handleTelegramUpdate(update) {
     }
 
     if (text.toLowerCase().startsWith("hisobot:")) {
-      db.reports.unshift({
-        id: uid("r"),
-        employeeId: employee.id,
-        employeeName: employee.fullName,
-        content: text.slice("hisobot:".length).trim(),
-        date: today(),
-        status: "Kutilmoqda",
-      });
+      addEmployeeReport(employee, text.slice("hisobot:".length).trim(), photoAttachment ? [photoAttachment] : []);
       saveDb();
       await telegram("sendMessage", { chat_id: chatId, text: "✅ Hisobot HR panelga yuborildi.", reply_markup: mainKeyboard() });
       return;
@@ -539,6 +547,27 @@ async function pollTelegram() {
 async function routeApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/state") {
     return sendJson(res, 200, db);
+  }
+
+  const telegramPhoto = url.pathname.match(/^\/api\/telegram\/photo\/([^/]+)$/);
+  if (req.method === "GET" && telegramPhoto) {
+    if (!BOT_TOKEN) return sendJson(res, 503, { error: "Telegram bot token sozlanmagan" });
+
+    const fileId = decodeURIComponent(telegramPhoto[1]);
+    const fileInfo = await telegram("getFile", { file_id: fileId });
+    if (!fileInfo.ok || !fileInfo.result?.file_path) return sendJson(res, 404, { error: "Rasm topilmadi" });
+
+    const fileResponse = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.result.file_path}`);
+    if (!fileResponse.ok) return sendJson(res, 404, { error: "Rasmni yuklab bo'lmadi" });
+
+    const contentType = fileResponse.headers.get("content-type") || "image/jpeg";
+    const buffer = Buffer.from(await fileResponse.arrayBuffer());
+    res.writeHead(200, {
+      "Content-Type": contentType,
+      "Cache-Control": "private, max-age=3600",
+    });
+    res.end(buffer);
+    return;
   }
 
   if (req.method === "PUT" && url.pathname === "/api/state") {

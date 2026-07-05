@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatUZS, isOverdue } from "@/lib/format";
-import { AlertOctagon, Banknote, Bell, Building2, CheckCircle2, Coins, Gift, Home, ReceiptText, TrendingUp, Wallet } from "lucide-react";
+import { Banknote, Bell, CheckCircle2, Coins, ReceiptText, TrendingUp, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -38,10 +38,14 @@ function readFinance() {
 
 function readPaid() {
   try {
-    return new Set<string>(JSON.parse(localStorage.getItem(PAID_KEY) || "[]"));
+    return new Set<string>(JSON.parse(localStorage.getItem(currentPayrollKey()) || "[]"));
   } catch {
     return new Set<string>();
   }
+}
+
+function currentPayrollKey(date = new Date()) {
+  return `${PAID_KEY}_${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function isSalesEmployee(position: string, type?: string) {
@@ -49,10 +53,24 @@ function isSalesEmployee(position: string, type?: string) {
   return type === "sales" || normalized.includes("sotuv") || normalized.includes("sales");
 }
 
+function payrollWindowStatus(date = new Date()) {
+  const day = date.getDate();
+  const open = day === 1 || day === 2;
+  const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  const nextWindow = `${nextMonth.toLocaleDateString("uz-UZ", { month: "long", day: "numeric" })}-${new Date(date.getFullYear(), date.getMonth() + 1, 2).toLocaleDateString("uz-UZ", { day: "numeric" })}`;
+
+  return {
+    day,
+    open,
+    nextWindow,
+  };
+}
+
 export default function Finance() {
   const { employees, attendance, tasks, reports, rules } = useHR();
   const [settings, setSettings] = useState<FinanceSettings>(readFinance);
   const [paidIds, setPaidIds] = useState<Set<string>>(readPaid);
+  const payrollWindow = payrollWindowStatus();
 
   const saveSettings = (next: FinanceSettings) => {
     setSettings(next);
@@ -60,16 +78,26 @@ export default function Finance() {
   };
 
   const markPaid = (employeeId: string) => {
+    if (!payrollWindow.open) {
+      toast.warning(`Oylik tarqatish vaqti har oyning 1-2 sanasi. Bugun ${payrollWindow.day}-sana, keyingi muddat: ${payrollWindow.nextWindow}.`);
+      return;
+    }
+
     const next = new Set(paidIds);
     next.add(employeeId);
     setPaidIds(next);
-    localStorage.setItem(PAID_KEY, JSON.stringify(Array.from(next)));
+    localStorage.setItem(currentPayrollKey(), JSON.stringify(Array.from(next)));
   };
 
   const markAllPaid = () => {
+    if (!payrollWindow.open) {
+      toast.warning(`Oylik berish vaqti hali kelmagan. Oyliklar faqat har oyning 1-2 sanasida tarqatiladi. Keyingi muddat: ${payrollWindow.nextWindow}.`);
+      return;
+    }
+
     const next = new Set(employees.map((employee) => employee.id));
     setPaidIds(next);
-    localStorage.setItem(PAID_KEY, JSON.stringify(Array.from(next)));
+    localStorage.setItem(currentPayrollKey(), JSON.stringify(Array.from(next)));
     toast.success("Barcha xodimlar oyligi tarqatildi deb belgilandi");
   };
 
@@ -138,7 +166,7 @@ export default function Finance() {
   const totalExpenses = payrollTotal + companyExpenses;
   const profit = settings.companyIncome - totalExpenses;
   const unpaidCount = rows.filter((row) => !row.paid).length;
-  const payoutReminder = new Date().getDate() >= 25 && unpaidCount > 0;
+  const payoutReminder = unpaidCount > 0;
 
   const cards = [
     { label: "Kompaniya daromadi", value: settings.companyIncome, icon: TrendingUp, gradient: "from-emerald-500 to-teal-500" },
@@ -150,12 +178,21 @@ export default function Finance() {
   return (
     <div className="space-y-5">
       {payoutReminder && (
-        <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className={cn(
+          "rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center gap-3",
+          payrollWindow.open ? "border-success/30 bg-success/10" : "border-warning/30 bg-warning/10"
+        )}>
           <div className="flex items-center gap-3">
-            <Bell className="h-5 w-5 text-warning" />
+            <Bell className={cn("h-5 w-5", payrollWindow.open ? "text-success" : "text-warning")} />
             <div>
-              <div className="font-semibold">Oylik tarqatish vaqti yaqinlashdi</div>
-              <div className="text-sm text-muted-foreground">{unpaidCount} ta xodim oyligi hali tarqatilmagan.</div>
+              <div className="font-semibold">
+                {payrollWindow.open ? "Oylik tarqatish vaqti ochiq" : "Oylik tarqatish vaqti hali kelmagan"}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {payrollWindow.open
+                  ? `${unpaidCount} ta xodim oyligi tarqatilmagan. Bugun ${payrollWindow.day}-sana.`
+                  : `Oyliklar har oyning 1-2 sanasida tarqatiladi. Keyingi muddat: ${payrollWindow.nextWindow}.`}
+              </div>
             </div>
           </div>
           <Button className="sm:ml-auto bg-gradient-primary text-white" onClick={notifyPayroll}>

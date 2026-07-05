@@ -68,6 +68,11 @@ export interface DailyReport {
   content: string;
   date: string;
   status: ReportStatus;
+  attachments?: {
+    type: "photo";
+    fileId: string;
+    caption?: string;
+  }[];
 }
 
 export interface SupportTicket {
