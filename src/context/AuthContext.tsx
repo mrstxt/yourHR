@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { AuthUser, CompanyAccount, UserRole } from "@/types/hr";
+import { localDate } from "@/lib/datetime";
 
 const COMPANIES_KEY = "yourhr_companies_clean_v1";
 const USER_KEY = "yourhr_user_clean_v1";
@@ -177,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contactName: input.contactName.trim(),
         contactInfo: input.contactInfo.trim(),
         status: "active",
-        createdAt: new Date().toISOString().slice(0, 10),
+        createdAt: localDate(),
       };
 
       setCompanies((prev) => [company, ...prev]);

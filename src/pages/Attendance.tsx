@@ -5,10 +5,11 @@ import { AttendanceStatusBadge } from "@/components/StatusBadges";
 import { Input } from "@/components/ui/input";
 import { Clock, UserCheck, UserX, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { localDate } from "@/lib/datetime";
 
 export default function Attendance() {
   const { attendance } = useHR();
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(localDate());
 
   const dayList = attendance.filter(a => a.date === date);
   const present = dayList.filter(a => a.status !== "Kelmagan").length;

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Employee, Task, Attendance, DailyReport, SupportTicket, RuleSettings, ChatMessage, TaskStatus, ReportStatus, TicketStatus } from "@/types/hr";
 import { initialRules } from "@/data/mockData";
+import { localDate, localTime } from "@/lib/datetime";
 
 interface HRContextValue {
   employees: Employee[];
@@ -160,12 +161,12 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           .then((res) => res.ok ? res.json() : Promise.reject())
           .then((data) => setTasks(prev => [data.task, ...prev]))
           .catch(() => {
-            setTasks(prev => [{ ...t, id: `t${Date.now()}`, createdAt: new Date().toISOString().slice(0,10), employeeName: emp?.fullName ?? "" }, ...prev]);
+            setTasks(prev => [{ ...t, id: `t${Date.now()}`, createdAt: localDate(), employeeName: emp?.fullName ?? "" }, ...prev]);
           });
         return;
       }
 
-      setTasks(prev => [{ ...t, id: `t${Date.now()}`, createdAt: new Date().toISOString().slice(0,10), employeeName: emp?.fullName ?? "" }, ...prev]);
+      setTasks(prev => [{ ...t, id: `t${Date.now()}`, createdAt: localDate(), employeeName: emp?.fullName ?? "" }, ...prev]);
     },
     updateTaskStatus: (id, status) => {
       setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
@@ -177,9 +178,9 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         }).catch(() => undefined);
       }
     },
-    addReport: (r) => setReports(prev => [{ ...r, id: `r${Date.now()}`, date: new Date().toISOString().slice(0,10), status: "Kutilmoqda" }, ...prev]),
+    addReport: (r) => setReports(prev => [{ ...r, id: `r${Date.now()}`, date: localDate(), status: "Kutilmoqda" }, ...prev]),
     updateReportStatus: (id, status) => setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r)),
-    addTicket: (t) => setTickets(prev => [{ ...t, id: `s${Date.now()}`, createdAt: new Date().toISOString().slice(0,10), status: "Ochiq", reply: "" }, ...prev]),
+    addTicket: (t) => setTickets(prev => [{ ...t, id: `s${Date.now()}`, createdAt: localDate(), status: "Ochiq", reply: "" }, ...prev]),
     updateTicket: (id, patch) => setTickets(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t)),
     sendMessage: (employeeId, text) => {
       if (backendReady) {
@@ -192,14 +193,14 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           .then((data) => setChats(prev => ({ ...prev, [employeeId]: data.messages })))
           .catch(() => setChats(prev => ({
             ...prev,
-            [employeeId]: [...(prev[employeeId] ?? []), { id: `m${Date.now()}`, employeeId, fromMe: true, text, time: new Date().toTimeString().slice(0,5) }]
+            [employeeId]: [...(prev[employeeId] ?? []), { id: `m${Date.now()}`, employeeId, fromMe: true, text, time: localTime() }]
           })));
         return;
       }
 
       setChats(prev => ({
         ...prev,
-        [employeeId]: [...(prev[employeeId] ?? []), { id: `m${Date.now()}`, employeeId, fromMe: true, text, time: new Date().toTimeString().slice(0,5) }]
+        [employeeId]: [...(prev[employeeId] ?? []), { id: `m${Date.now()}`, employeeId, fromMe: true, text, time: localTime() }]
       }));
     },
     updateRules: (r) => setRules(r),

@@ -22,7 +22,7 @@ export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, s
   const { employees, reports, tickets, tasks, chats } = useHR();
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
 
   const chatNotifications = Object.entries(chats)
     .map(([employeeId, messages]) => {
@@ -97,7 +97,7 @@ export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, s
         </div>
 
         <div className="hidden lg:flex items-center px-3 py-1.5 rounded-lg bg-muted/50 text-xs text-muted-foreground font-medium">
-          {now.toLocaleDateString("uz-UZ", { weekday: "short", day: "2-digit", month: "short" })} · {now.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
+          {now.toLocaleDateString("uz-UZ", { weekday: "short", day: "2-digit", month: "short" })} · {now.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </div>
 
         <Popover>

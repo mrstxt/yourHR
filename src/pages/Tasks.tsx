@@ -14,6 +14,7 @@ import { Plus, LayoutGrid, List, CheckCircle2, XCircle, Play, AlertOctagon } fro
 import { formatDate, formatUZS, isOverdue } from "@/lib/format";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { localDate } from "@/lib/datetime";
 
 const statuses: TaskStatus[] = ["Kutilmoqda", "Tasdiqlangan", "Bajarilmoqda", "Bajarildi", "Rad etildi"];
 
@@ -21,7 +22,7 @@ export default function Tasks() {
   const { tasks, employees, addTask, updateTaskStatus } = useHR();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [view, setView] = useState<"table" | "kanban">("table");
-  const [form, setForm] = useState({ title: "", description: "", employeeId: "", status: "Kutilmoqda" as TaskStatus, priority: "O'rta" as TaskPriority, deadline: new Date().toISOString().slice(0,10), bonusAmount: 300000 });
+  const [form, setForm] = useState({ title: "", description: "", employeeId: "", status: "Kutilmoqda" as TaskStatus, priority: "O'rta" as TaskPriority, deadline: localDate(), bonusAmount: 300000 });
 
   const save = () => {
     if (!form.title || !form.employeeId) return toast.error("Sarlavha va xodimni tanlang");

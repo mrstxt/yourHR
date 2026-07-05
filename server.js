@@ -37,7 +37,14 @@ const mime = {
   ".json": "application/json; charset=utf-8",
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+function today() {
+  const value = new Date();
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 const uid = (prefix) => `${prefix}${Date.now()}${crypto.randomBytes(2).toString("hex")}`;
 const timeNow = () => new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", hour12: false });
 

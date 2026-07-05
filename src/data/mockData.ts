@@ -1,7 +1,8 @@
 import { Employee, Task, Attendance, DailyReport, SupportTicket, RuleSettings, ChatMessage } from "@/types/hr";
+import { localDate } from "@/lib/datetime";
 
 const today = new Date();
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (d: Date) => localDate(d);
 const daysAgo = (n: number) => { const d = new Date(today); d.setDate(d.getDate() - n); return iso(d); };
 const daysAhead = (n: number) => { const d = new Date(today); d.setDate(d.getDate() + n); return iso(d); };
 
