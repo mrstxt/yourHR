@@ -15,7 +15,26 @@ import { formatUZS } from "@/lib/format";
 import { toast } from "sonner";
 
 type FormData = Omit<Employee, "id" | "avatarInitials">;
-const empty: FormData = { fullName: "", position: "", salary: 0, kpi: 80, status: "Faol", phone: "", email: "", telegramLogin: "", telegramPassword: "" };
+const empty: FormData = {
+  fullName: "",
+  position: "",
+  salary: 0,
+  kpi: 0,
+  compensationType: "bonus",
+  salesKpiPercent: 0,
+  monthlySalesAmount: 0,
+  monthlyBonus: 0,
+  status: "Faol",
+  phone: "",
+  email: "",
+  telegramLogin: "",
+  telegramPassword: "",
+};
+
+function isSalesPosition(position: string) {
+  const normalized = position.toLowerCase();
+  return normalized.includes("sotuv") || normalized.includes("sales");
+}
 
 export default function Employees() {
   const { employees, tasks, reports, attendance, addEmployee, updateEmployee, deleteEmployee } = useHR();
@@ -38,11 +57,21 @@ export default function Employees() {
 
   const openAdd = () => { setEditing(null); setForm(empty); setDrawerOpen(true); };
   const openEdit = (e: Employee) => { setEditing(e); const { id, avatarInitials, ...rest } = e; setForm(rest); setDrawerOpen(true); };
+  const salesEmployee = form.compensationType === "sales" || isSalesPosition(form.position);
+  const effectiveCompensationType = salesEmployee ? "sales" : "bonus";
 
   const save = () => {
     if (!form.fullName || !form.position) return toast.error("Ism va lavozimni to'ldiring");
-    if (editing) { updateEmployee(editing.id, form); toast.success("Xodim yangilandi"); }
-    else { addEmployee(form); toast.success("Yangi xodim qo'shildi"); }
+    const payload = {
+      ...form,
+      compensationType: effectiveCompensationType,
+      kpi: effectiveCompensationType === "sales" ? Number(form.salesKpiPercent || 0) : 0,
+      salesKpiPercent: effectiveCompensationType === "sales" ? Number(form.salesKpiPercent || 0) : 0,
+      monthlySalesAmount: effectiveCompensationType === "sales" ? Number(form.monthlySalesAmount || 0) : 0,
+      monthlyBonus: effectiveCompensationType === "bonus" ? Number(form.monthlyBonus || 0) : 0,
+    } satisfies FormData;
+    if (editing) { updateEmployee(editing.id, payload); toast.success("Xodim yangilandi"); }
+    else { addEmployee(payload); toast.success("Yangi xodim qo'shildi"); }
     setDrawerOpen(false);
   };
 
@@ -103,7 +132,7 @@ export default function Employees() {
                 <th className="text-left font-medium py-3 px-5">Xodim</th>
                 <th className="text-left font-medium py-3 px-3">Lavozim</th>
                 <th className="text-left font-medium py-3 px-3">Maosh</th>
-                <th className="text-left font-medium py-3 px-3">KPI</th>
+                  <th className="text-left font-medium py-3 px-3">Rag'bat</th>
                 <th className="text-left font-medium py-3 px-3">Holat</th>
                 <th className="text-right font-medium py-3 px-5">Amallar</th>
               </tr>
@@ -127,13 +156,10 @@ export default function Employees() {
                   </td>
                   <td className="py-3 px-3">{e.position}</td>
                   <td className="py-3 px-3 font-medium">{formatUZS(e.salary)}</td>
-                  <td className="py-3 px-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-primary" style={{ width: `${e.kpi}%` }} />
-                      </div>
-                      <span className="text-xs font-semibold">{e.kpi}%</span>
-                    </div>
+                  <td className="py-3 px-3 text-xs font-semibold">
+                    {(e.compensationType === "sales" || isSalesPosition(e.position))
+                      ? `Sotuvdan ${e.salesKpiPercent ?? e.kpi ?? 0}%`
+                      : `Bonus: ${formatUZS(e.monthlyBonus ?? 0)}`}
                   </td>
                   <td className="py-3 px-3"><EmployeeStatusBadge status={e.status} /></td>
                   <td className="py-3 px-5 text-right">
@@ -164,11 +190,42 @@ export default function Employees() {
           </SheetHeader>
           <div className="space-y-4 py-6">
             <div className="space-y-1.5"><Label>To'liq ism</Label><Input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} /></div>
-            <div className="space-y-1.5"><Label>Lavozim</Label><Input value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} /></div>
+            <div className="space-y-1.5">
+              <Label>Lavozim</Label>
+              <Input
+                value={form.position}
+                onChange={e => {
+                  const position = e.target.value;
+                  setForm({ ...form, position, compensationType: isSalesPosition(position) ? "sales" : "bonus" });
+                }}
+                placeholder="Masalan: Sotuv menejeri"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Hisob turi</Label>
+              <Select value={effectiveCompensationType} onValueChange={(v: "sales" | "bonus") => setForm({ ...form, compensationType: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bonus">Oy oxiri bonus</SelectItem>
+                  <SelectItem value="sales">Sotuv KPI</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label>Maosh</Label><Input type="number" value={form.salary} onChange={e => setForm({ ...form, salary: +e.target.value })} /></div>
-              <div className="space-y-1.5"><Label>KPI (%)</Label><Input type="number" value={form.kpi} onChange={e => setForm({ ...form, kpi: +e.target.value })} /></div>
+              {effectiveCompensationType === "sales" ? (
+                <div className="space-y-1.5"><Label>Sotuvdan KPI (%)</Label><Input type="number" value={form.salesKpiPercent ?? 0} onChange={e => setForm({ ...form, salesKpiPercent: +e.target.value })} /></div>
+              ) : (
+                <div className="space-y-1.5"><Label>Oy oxiri bonus</Label><Input type="number" value={form.monthlyBonus ?? 0} onChange={e => setForm({ ...form, monthlyBonus: +e.target.value })} /></div>
+              )}
             </div>
+            {effectiveCompensationType === "sales" && (
+              <div className="space-y-1.5">
+                <Label>Bu oy sotuv summasi</Label>
+                <Input type="number" value={form.monthlySalesAmount ?? 0} onChange={e => setForm({ ...form, monthlySalesAmount: +e.target.value })} />
+                <p className="text-xs text-muted-foreground">KPI summasi sotuv summasi × foiz asosida hisoblanadi.</p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Holat</Label>
               <Select value={form.status} onValueChange={(v: EmployeeStatus) => setForm({ ...form, status: v })}>
@@ -223,13 +280,31 @@ export default function Employees() {
               <div className="space-y-5 py-6">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-muted/50 p-4">
-                    <div className="text-xs text-muted-foreground">KPI</div>
-                    <div className="font-display text-2xl font-bold text-primary">{detail.kpi}%</div>
+                    <div className="text-xs text-muted-foreground">Rag'bat turi</div>
+                    <div className="font-display text-lg font-bold text-primary">
+                      {(detail.compensationType === "sales" || isSalesPosition(detail.position)) ? "Sotuv KPI" : "Oy oxiri bonus"}
+                    </div>
                   </div>
                   <div className="rounded-xl bg-muted/50 p-4">
                     <div className="text-xs text-muted-foreground">Maosh</div>
                     <div className="font-display text-lg font-bold">{formatUZS(detail.salary)}</div>
                   </div>
+                </div>
+                <div className="rounded-xl bg-muted/50 p-4">
+                  {(detail.compensationType === "sales" || isSalesPosition(detail.position)) ? (
+                    <>
+                      <div className="text-xs text-muted-foreground">Sotuv hisob-kitobi</div>
+                      <div className="font-semibold">{formatUZS(detail.monthlySalesAmount ?? 0)} × {detail.salesKpiPercent ?? detail.kpi ?? 0}%</div>
+                      <div className="text-sm text-success mt-1">
+                        KPI: {formatUZS(Math.round((detail.monthlySalesAmount ?? 0) * ((detail.salesKpiPercent ?? detail.kpi ?? 0) / 100)))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs text-muted-foreground">Oy oxiri rag'batlantirish</div>
+                      <div className="font-semibold">{formatUZS(detail.monthlyBonus ?? 0)}</div>
+                    </>
+                  )}
                 </div>
                 <div className="rounded-xl bg-accent/40 border border-border p-4">
                   <div className="text-xs text-muted-foreground mb-1">Telegram bot uchun login-parol</div>

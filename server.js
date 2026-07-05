@@ -43,8 +43,9 @@ const timeNow = () => new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", 
 
 const seed = {
   employees: [
-    { id: "e1", fullName: "Aziza Karimova", position: "HR Menejer", salary: 12000000, kpi: 94, status: "Faol", avatarInitials: "AK", phone: "+998 90 123 45 67", email: "aziza@company.uz", joinedAt: "2022-03-15", telegramLogin: "aziza", telegramPassword: "aziza123", telegramChatId: "" },
-    { id: "e2", fullName: "Bekzod Yusupov", position: "Frontend Dasturchi", salary: 18000000, kpi: 88, status: "Faol", avatarInitials: "BY", phone: "+998 90 234 56 78", email: "bekzod@company.uz", joinedAt: "2021-07-01", telegramLogin: "bekzod", telegramPassword: "bekzod123", telegramChatId: "" },
+    { id: "e1", fullName: "Aziza Karimova", position: "HR Menejer", salary: 12000000, kpi: 0, compensationType: "bonus", monthlyBonus: 500000, status: "Faol", avatarInitials: "AK", phone: "+998 90 123 45 67", email: "aziza@company.uz", joinedAt: "2022-03-15", telegramLogin: "aziza", telegramPassword: "aziza123", telegramChatId: "" },
+    { id: "e2", fullName: "Bekzod Yusupov", position: "Frontend Dasturchi", salary: 18000000, kpi: 0, compensationType: "bonus", monthlyBonus: 700000, status: "Faol", avatarInitials: "BY", phone: "+998 90 234 56 78", email: "bekzod@company.uz", joinedAt: "2021-07-01", telegramLogin: "bekzod", telegramPassword: "bekzod123", telegramChatId: "" },
+    { id: "e3", fullName: "Zilola Abdullayeva", position: "Sotuv menejeri", salary: 10500000, kpi: 3, compensationType: "sales", salesKpiPercent: 3, monthlySalesAmount: 85000000, status: "Faol", avatarInitials: "ZA", phone: "+998 90 789 01 23", email: "zilola@company.uz", joinedAt: "2022-06-22", telegramLogin: "zilola", telegramPassword: "zilola123", telegramChatId: "" },
   ],
   tasks: [
     { id: "t1", title: "Dashboard KPI grafiklari", description: "Recharts bilan grafiklar", employeeId: "e2", employeeName: "Bekzod Yusupov", status: "Kutilmoqda", priority: "Yuqori", deadline: today(), bonusAmount: 500000, createdAt: today() },
@@ -90,6 +91,19 @@ function ensureEmployeeCredentials() {
     employee.telegramPassword = employee.telegramPassword || makePassword();
     employee.telegramChatId = employee.telegramChatId || "";
     if (employee.telegramChatId && !/^-?\d+$/.test(String(employee.telegramChatId))) employee.telegramChatId = "";
+    const salesEmployee = String(employee.position || "").toLowerCase().includes("sotuv") || String(employee.position || "").toLowerCase().includes("sales");
+    employee.compensationType = employee.compensationType || (salesEmployee ? "sales" : "bonus");
+    if (employee.compensationType === "sales") {
+      employee.salesKpiPercent = Number(employee.salesKpiPercent ?? employee.kpi ?? 0);
+      employee.monthlySalesAmount = Number(employee.monthlySalesAmount ?? 0);
+      employee.monthlyBonus = 0;
+      employee.kpi = employee.salesKpiPercent;
+    } else {
+      employee.monthlyBonus = Number(employee.monthlyBonus ?? 0);
+      employee.salesKpiPercent = 0;
+      employee.monthlySalesAmount = 0;
+      employee.kpi = 0;
+    }
     used.add(login);
   }
 }

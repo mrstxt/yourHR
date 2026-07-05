@@ -5,17 +5,20 @@ import { Wallet, Gift, AlertOctagon, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function Finance() {
-  const { employees, rules } = useHR();
+  const { employees } = useHR();
 
   const rows = employees.map(e => {
-    const bonus = e.kpi >= 90 ? rules.earlyBonus : 0;
-    const fine = e.kpi < rules.minKpi ? rules.taskDelayFine : 0;
-    return { ...e, bonus, fine, total: e.salary + bonus - fine };
+    const isSales = e.compensationType === "sales" || e.position.toLowerCase().includes("sotuv") || e.position.toLowerCase().includes("sales");
+    const incentive = isSales
+      ? Math.round((e.monthlySalesAmount ?? 0) * ((e.salesKpiPercent ?? e.kpi ?? 0) / 100))
+      : Number(e.monthlyBonus ?? 0);
+    const fine = 0;
+    return { ...e, isSales, incentive, fine, total: e.salary + incentive - fine };
   });
 
   const totals = rows.reduce((acc, r) => ({
     salary: acc.salary + r.salary,
-    bonus: acc.bonus + r.bonus,
+    bonus: acc.bonus + r.incentive,
     fine: acc.fine + r.fine,
     total: acc.total + r.total,
   }), { salary: 0, bonus: 0, fine: 0, total: 0 });
@@ -52,7 +55,7 @@ export default function Finance() {
       <div className="card-elevated overflow-hidden">
         <div className="p-4 border-b border-border">
           <h3 className="font-display font-bold">Maosh hisob-kitobi</h3>
-          <p className="text-xs text-muted-foreground">KPI asosida bonus va jarima</p>
+          <p className="text-xs text-muted-foreground">Sotuv xodimlari uchun sotuvdan KPI, boshqa xodimlar uchun oy oxiri bonus</p>
         </div>
         <div className="overflow-x-auto scrollbar-thin">
           <table className="w-full text-sm">
@@ -60,8 +63,8 @@ export default function Finance() {
               <tr>
                 <th className="text-left font-medium py-3 px-5">Xodim</th>
                 <th className="text-left font-medium py-3 px-3">Maosh</th>
-                <th className="text-left font-medium py-3 px-3">KPI</th>
-                <th className="text-left font-medium py-3 px-3">Bonus</th>
+                <th className="text-left font-medium py-3 px-3">Hisob turi</th>
+                <th className="text-left font-medium py-3 px-3">Rag'bat</th>
                 <th className="text-left font-medium py-3 px-3">Jarima</th>
                 <th className="text-right font-medium py-3 px-5">Jami</th>
               </tr>
@@ -79,8 +82,10 @@ export default function Finance() {
                     </div>
                   </td>
                   <td className="py-3 px-3">{formatUZS(r.salary)}</td>
-                  <td className="py-3 px-3 font-semibold">{r.kpi}%</td>
-                  <td className="py-3 px-3 text-success">{r.bonus ? "+" + formatUZS(r.bonus) : "—"}</td>
+                  <td className="py-3 px-3 font-semibold">
+                    {r.isSales ? `Sotuvdan ${r.salesKpiPercent ?? r.kpi ?? 0}%` : "Oy oxiri bonus"}
+                  </td>
+                  <td className="py-3 px-3 text-success">{r.incentive ? "+" + formatUZS(r.incentive) : "—"}</td>
                   <td className="py-3 px-3 text-danger">{r.fine ? "−" + formatUZS(r.fine) : "—"}</td>
                   <td className="py-3 px-5 text-right font-bold">{formatUZS(r.total)}</td>
                 </tr>

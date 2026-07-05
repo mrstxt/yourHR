@@ -23,6 +23,10 @@ export interface Employee {
   position: string;
   salary: number;
   kpi: number;
+  compensationType?: "sales" | "bonus";
+  salesKpiPercent?: number;
+  monthlySalesAmount?: number;
+  monthlyBonus?: number;
   status: EmployeeStatus;
   avatarInitials: string;
   phone?: string;

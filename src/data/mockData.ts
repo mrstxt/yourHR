@@ -6,14 +6,14 @@ const daysAgo = (n: number) => { const d = new Date(today); d.setDate(d.getDate(
 const daysAhead = (n: number) => { const d = new Date(today); d.setDate(d.getDate() + n); return iso(d); };
 
 export const initialEmployees: Employee[] = [
-  { id: "e1", fullName: "Aziza Karimova", position: "HR Menejer", salary: 12000000, kpi: 94, status: "Faol", avatarInitials: "AK", phone: "+998 90 123 45 67", email: "aziza@company.uz", joinedAt: "2022-03-15" },
-  { id: "e2", fullName: "Bekzod Yusupov", position: "Frontend Dasturchi", salary: 18000000, kpi: 88, status: "Faol", avatarInitials: "BY", phone: "+998 90 234 56 78", email: "bekzod@company.uz", joinedAt: "2021-07-01" },
-  { id: "e3", fullName: "Dilnoza Rahimova", position: "UI/UX Dizayner", salary: 14000000, kpi: 91, status: "Faol", avatarInitials: "DR", phone: "+998 90 345 67 89", email: "dilnoza@company.uz", joinedAt: "2023-01-10" },
-  { id: "e4", fullName: "Sardor Xoliqov", position: "Backend Dasturchi", salary: 20000000, kpi: 76, status: "Faol", avatarInitials: "SX", phone: "+998 90 456 78 90", email: "sardor@company.uz", joinedAt: "2020-11-20" },
-  { id: "e5", fullName: "Malika Tursunova", position: "Marketing", salary: 11000000, kpi: 82, status: "Ta'tilda", avatarInitials: "MT", phone: "+998 90 567 89 01", email: "malika@company.uz", joinedAt: "2022-09-05" },
-  { id: "e6", fullName: "Javohir Nazarov", position: "QA Muhandis", salary: 13500000, kpi: 68, status: "Faol", avatarInitials: "JN", phone: "+998 90 678 90 12", email: "javohir@company.uz", joinedAt: "2023-05-18" },
-  { id: "e7", fullName: "Zilola Abdullayeva", position: "Sotuv menejeri", salary: 10500000, kpi: 89, status: "Faol", avatarInitials: "ZA", phone: "+998 90 789 01 23", email: "zilola@company.uz", joinedAt: "2022-06-22" },
-  { id: "e8", fullName: "Rustam Islomov", position: "DevOps", salary: 22000000, kpi: 95, status: "Faol", avatarInitials: "RI", phone: "+998 90 890 12 34", email: "rustam@company.uz", joinedAt: "2019-08-30" },
+  { id: "e1", fullName: "Aziza Karimova", position: "HR Menejer", salary: 12000000, kpi: 0, compensationType: "bonus", monthlyBonus: 500000, status: "Faol", avatarInitials: "AK", phone: "+998 90 123 45 67", email: "aziza@company.uz", joinedAt: "2022-03-15" },
+  { id: "e2", fullName: "Bekzod Yusupov", position: "Frontend Dasturchi", salary: 18000000, kpi: 0, compensationType: "bonus", monthlyBonus: 700000, status: "Faol", avatarInitials: "BY", phone: "+998 90 234 56 78", email: "bekzod@company.uz", joinedAt: "2021-07-01" },
+  { id: "e3", fullName: "Dilnoza Rahimova", position: "UI/UX Dizayner", salary: 14000000, kpi: 0, compensationType: "bonus", monthlyBonus: 600000, status: "Faol", avatarInitials: "DR", phone: "+998 90 345 67 89", email: "dilnoza@company.uz", joinedAt: "2023-01-10" },
+  { id: "e4", fullName: "Sardor Xoliqov", position: "Backend Dasturchi", salary: 20000000, kpi: 0, compensationType: "bonus", monthlyBonus: 800000, status: "Faol", avatarInitials: "SX", phone: "+998 90 456 78 90", email: "sardor@company.uz", joinedAt: "2020-11-20" },
+  { id: "e5", fullName: "Malika Tursunova", position: "Marketing", salary: 11000000, kpi: 0, compensationType: "bonus", monthlyBonus: 300000, status: "Ta'tilda", avatarInitials: "MT", phone: "+998 90 567 89 01", email: "malika@company.uz", joinedAt: "2022-09-05" },
+  { id: "e6", fullName: "Javohir Nazarov", position: "QA Muhandis", salary: 13500000, kpi: 0, compensationType: "bonus", monthlyBonus: 400000, status: "Faol", avatarInitials: "JN", phone: "+998 90 678 90 12", email: "javohir@company.uz", joinedAt: "2023-05-18" },
+  { id: "e7", fullName: "Zilola Abdullayeva", position: "Sotuv menejeri", salary: 10500000, kpi: 3, compensationType: "sales", salesKpiPercent: 3, monthlySalesAmount: 85000000, status: "Faol", avatarInitials: "ZA", phone: "+998 90 789 01 23", email: "zilola@company.uz", joinedAt: "2022-06-22" },
+  { id: "e8", fullName: "Rustam Islomov", position: "DevOps", salary: 22000000, kpi: 0, compensationType: "bonus", monthlyBonus: 900000, status: "Faol", avatarInitials: "RI", phone: "+998 90 890 12 34", email: "rustam@company.uz", joinedAt: "2019-08-30" },
 ];
 
 export const initialTasks: Task[] = [
