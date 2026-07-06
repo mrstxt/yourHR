@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useHR } from "@/context/HRContext";
 import { AvatarBubble } from "@/components/AvatarBubble";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { Banknote, Bell, CheckCircle2, Coins, ReceiptText, TrendingUp, Wallet } 
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const FINANCE_KEY = "yourhr_finance_settings_v1";
 const PAID_KEY = "yourhr_paid_payroll_v1";
 
 interface FinanceSettings {
@@ -27,22 +26,6 @@ const defaultFinance: FinanceSettings = {
   extraExpenses: 0,
   marketingExpenses: 0,
 };
-
-function readFinance() {
-  try {
-    return { ...defaultFinance, ...JSON.parse(localStorage.getItem(FINANCE_KEY) || "{}") };
-  } catch {
-    return defaultFinance;
-  }
-}
-
-function readPaid() {
-  try {
-    return new Set<string>(JSON.parse(localStorage.getItem(currentPayrollKey()) || "[]"));
-  } catch {
-    return new Set<string>();
-  }
-}
 
 function currentPayrollKey(date = new Date()) {
   return `${PAID_KEY}_${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -68,13 +51,36 @@ function payrollWindowStatus(date = new Date()) {
 
 export default function Finance() {
   const { employees, attendance, tasks, reports, rules } = useHR();
-  const [settings, setSettings] = useState<FinanceSettings>(readFinance);
-  const [paidIds, setPaidIds] = useState<Set<string>>(readPaid);
+  const [settings, setSettings] = useState<FinanceSettings>(defaultFinance);
+  const [paidIds, setPaidIds] = useState<Set<string>>(new Set());
   const payrollWindow = payrollWindowStatus();
+  const payrollKey = currentPayrollKey();
+
+  useEffect(() => {
+    fetch(`/api/finance-state?payrollKey=${encodeURIComponent(payrollKey)}`)
+      .then((res) => res.ok ? res.json() : Promise.reject())
+      .then((data) => {
+        setSettings({ ...defaultFinance, ...(data.settings || {}) });
+        setPaidIds(new Set(Array.isArray(data.paidIds) ? data.paidIds : []));
+      })
+      .catch(() => undefined);
+  }, [payrollKey]);
+
+  const persistFinance = (nextSettings: FinanceSettings, nextPaidIds: Set<string>) => {
+    fetch("/api/finance-state", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        payrollKey,
+        settings: nextSettings,
+        paidIds: Array.from(nextPaidIds),
+      }),
+    }).catch(() => undefined);
+  };
 
   const saveSettings = (next: FinanceSettings) => {
     setSettings(next);
-    localStorage.setItem(FINANCE_KEY, JSON.stringify(next));
+    persistFinance(next, paidIds);
   };
 
   const markPaid = (employeeId: string) => {
@@ -86,7 +92,7 @@ export default function Finance() {
     const next = new Set(paidIds);
     next.add(employeeId);
     setPaidIds(next);
-    localStorage.setItem(currentPayrollKey(), JSON.stringify(Array.from(next)));
+    persistFinance(settings, next);
   };
 
   const markAllPaid = () => {
@@ -97,7 +103,7 @@ export default function Finance() {
 
     const next = new Set(employees.map((employee) => employee.id));
     setPaidIds(next);
-    localStorage.setItem(currentPayrollKey(), JSON.stringify(Array.from(next)));
+    persistFinance(settings, next);
     toast.success("Barcha xodimlar oyligi tarqatildi deb belgilandi");
   };
 

@@ -25,7 +25,6 @@ interface HRContextValue {
 }
 
 const HRContext = createContext<HRContextValue | null>(null);
-const HR_DATA_KEY = "yourhr_hr_data_clean_v1";
 
 interface StoredHRData {
   employees: Employee[];
@@ -38,7 +37,7 @@ interface StoredHRData {
 }
 
 function readStoredData(): StoredHRData {
-  const fallback: StoredHRData = {
+  return {
     employees: [],
     tasks: [],
     attendance: [],
@@ -47,15 +46,6 @@ function readStoredData(): StoredHRData {
     rules: initialRules,
     chats: {},
   };
-
-  const raw = localStorage.getItem(HR_DATA_KEY);
-  if (!raw) return fallback;
-
-  try {
-    return { ...fallback, ...JSON.parse(raw) };
-  } catch {
-    return fallback;
-  }
 }
 
 function initials(name: string) {
@@ -112,7 +102,6 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   useEffect(() => {
     if (!loaded) return;
-    localStorage.setItem(HR_DATA_KEY, JSON.stringify({ employees, tasks, attendance, reports, tickets, rules, chats }));
     if (backendReady) {
       fetch("/api/state", {
         method: "PUT",

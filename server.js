@@ -28,6 +28,13 @@ const pendingReport = new Set();
 const pendingChat = new Set();
 const pendingAuth = new Map();
 const defaultAdminCredentials = { username: "admin", password: "admin123" };
+const defaultFinanceSettings = {
+  companyIncome: 0,
+  utilities: 0,
+  officeRent: 0,
+  extraExpenses: 0,
+  marketingExpenses: 0,
+};
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -59,6 +66,8 @@ function webhookUrl() {
 const seed = {
   companies: [],
   adminCredentials: defaultAdminCredentials,
+  financeSettings: defaultFinanceSettings,
+  paidPayroll: {},
   employees: [],
   tasks: [],
   attendance: [],
@@ -131,6 +140,8 @@ function loadDb() {
 let db = loadDb();
 db.companies = Array.isArray(db.companies) ? db.companies : [];
 db.adminCredentials = db.adminCredentials?.username && db.adminCredentials?.password ? db.adminCredentials : defaultAdminCredentials;
+db.financeSettings = { ...defaultFinanceSettings, ...(db.financeSettings || {}) };
+db.paidPayroll = db.paidPayroll && typeof db.paidPayroll === "object" ? db.paidPayroll : {};
 ensureEmployeeCredentials();
 saveDb();
 
@@ -581,6 +592,27 @@ async function routeApi(req, res, url) {
     return sendJson(res, 200, {
       companies: db.companies || [],
       adminCredentials: db.adminCredentials || defaultAdminCredentials,
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/finance-state") {
+    const payrollKey = url.searchParams.get("payrollKey") || "default";
+    return sendJson(res, 200, {
+      settings: { ...defaultFinanceSettings, ...(db.financeSettings || {}) },
+      paidIds: db.paidPayroll?.[payrollKey] || [],
+    });
+  }
+
+  if (req.method === "PUT" && url.pathname === "/api/finance-state") {
+    const body = await readBody(req);
+    const payrollKey = body.payrollKey || "default";
+    db.financeSettings = { ...defaultFinanceSettings, ...(body.settings || {}) };
+    db.paidPayroll = db.paidPayroll && typeof db.paidPayroll === "object" ? db.paidPayroll : {};
+    if (Array.isArray(body.paidIds)) db.paidPayroll[payrollKey] = body.paidIds;
+    saveDb();
+    return sendJson(res, 200, {
+      settings: db.financeSettings,
+      paidIds: db.paidPayroll[payrollKey] || [],
     });
   }
 

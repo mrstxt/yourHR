@@ -2,9 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { AuthUser, CompanyAccount, UserRole } from "@/types/hr";
 import { localDate } from "@/lib/datetime";
 
-const COMPANIES_KEY = "yourhr_companies_clean_v1";
-const USER_KEY = "yourhr_user_clean_v1";
-const ADMIN_CREDENTIALS_KEY = "yourhr_admin_credentials_v1";
+const USER_SESSION_KEY = "yourhr_user_session_v1";
 
 interface AdminCredentials {
   username: string;
@@ -46,35 +44,15 @@ const defaultAdminCredentials: AdminCredentials = {
 };
 
 function readAdminCredentials() {
-  const raw = localStorage.getItem(ADMIN_CREDENTIALS_KEY);
-  if (!raw) return defaultAdminCredentials;
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<AdminCredentials>;
-    if (!parsed.username || !parsed.password) return defaultAdminCredentials;
-    return {
-      username: parsed.username,
-      password: parsed.password,
-    };
-  } catch {
-    return defaultAdminCredentials;
-  }
+  return defaultAdminCredentials;
 }
 
 function readCompanies() {
-  const raw = localStorage.getItem(COMPANIES_KEY);
-  if (!raw) return seedCompanies;
-
-  try {
-    const parsed = JSON.parse(raw) as CompanyAccount[];
-    return Array.isArray(parsed) ? parsed : seedCompanies;
-  } catch {
-    return seedCompanies;
-  }
+  return seedCompanies;
 }
 
 function readUser() {
-  const raw = localStorage.getItem(USER_KEY);
+  const raw = sessionStorage.getItem(USER_SESSION_KEY);
   if (!raw) return null;
 
   try {
@@ -113,46 +91,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [backendReady, setBackendReady] = useState(false);
 
   useEffect(() => {
-    const localCompanies = readCompanies();
-    const localAdminCredentials = readAdminCredentials();
-
     fetch("/api/auth-state")
       .then((res) => res.ok ? res.json() : Promise.reject())
       .then((data) => {
         const serverCompanies = Array.isArray(data.companies) ? data.companies : [];
-        const nextCompanies = serverCompanies.length ? serverCompanies : localCompanies;
         const nextAdminCredentials = data.adminCredentials?.username && data.adminCredentials?.password
           ? data.adminCredentials
-          : localAdminCredentials;
+          : defaultAdminCredentials;
 
-        setCompanies(nextCompanies);
+        setCompanies(serverCompanies);
         setAdminCredentials(nextAdminCredentials);
         setBackendReady(true);
-
-        if (!serverCompanies.length && localCompanies.length) {
-          fetch("/api/auth-state", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ companies: localCompanies, adminCredentials: nextAdminCredentials }),
-          }).catch(() => undefined);
-        }
       })
       .catch(() => setBackendReady(false))
       .finally(() => setAuthLoaded(true));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies));
-  }, [companies]);
-
-  useEffect(() => {
-    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-    else localStorage.removeItem(USER_KEY);
+    if (user) sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(user));
+    else sessionStorage.removeItem(USER_SESSION_KEY);
   }, [user]);
-
-  useEffect(() => {
-    localStorage.setItem(ADMIN_CREDENTIALS_KEY, JSON.stringify(adminCredentials));
-  }, [adminCredentials]);
 
   useEffect(() => {
     if (!authLoaded || !backendReady) return;
