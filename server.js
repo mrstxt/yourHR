@@ -80,6 +80,7 @@ const seed = {
   attendance: [],
   reports: [],
   tickets: [],
+  scheduledMeetings: [],
   rules: {
     lateFine: 50000,
     taskDelayFine: 100000,
@@ -161,6 +162,7 @@ db.companies = Array.isArray(db.companies) ? db.companies : [];
 db.adminCredentials = db.adminCredentials?.username && db.adminCredentials?.password ? db.adminCredentials : defaultAdminCredentials;
 db.financeSettings = { ...defaultFinanceSettings, ...(db.financeSettings || {}) };
 db.paidPayroll = db.paidPayroll && typeof db.paidPayroll === "object" ? db.paidPayroll : {};
+db.scheduledMeetings = Array.isArray(db.scheduledMeetings) ? db.scheduledMeetings : [];
 ensureEmployeeCredentials();
 saveDb();
 
@@ -395,6 +397,56 @@ function addEmployeeChat(employee, text, fromMe = false) {
     ...(db.chats[employee.id] || []),
     { id: uid("m"), employeeId: employee.id, fromMe, text, time: timeNow() },
   ];
+}
+
+function parseTashkentDateTime(value) {
+  if (!value) return null;
+  if (/[zZ]|[+-]\d\d:\d\d$/.test(value)) return new Date(value);
+  return new Date(`${value.length === 16 ? `${value}:00` : value}+05:00`);
+}
+
+function meetingText(meeting) {
+  return [
+    "📣 Muhim yig'ilish",
+    `Mavzu: ${meeting.title || "Muhim yig'ilish"}`,
+    meeting.scheduledAt ? `Vaqt: ${meeting.scheduledAt.replace("T", " ")}` : meeting.time ? `Vaqt: ${meeting.time}` : "",
+    meeting.location ? `Joy: ${meeting.location}` : "",
+    meeting.message ? `Izoh: ${meeting.message}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+async function sendMeetingToEmployees(meeting) {
+  const results = [];
+  for (const employee of db.employees) {
+    if (!employee.telegramChatId) continue;
+    const result = await telegram("sendMessage", {
+      chat_id: employee.telegramChatId,
+      text: meetingText(meeting),
+      reply_markup: mainKeyboard(),
+    });
+    results.push({ employeeId: employee.id, ok: result.ok });
+  }
+  return results;
+}
+
+async function processScheduledMeetings() {
+  if (!BOT_TOKEN || !Array.isArray(db.scheduledMeetings)) return;
+  const now = Date.now();
+  let changed = false;
+
+  for (const meeting of db.scheduledMeetings) {
+    if (meeting.status === "sent") continue;
+    const scheduledDate = parseTashkentDateTime(meeting.scheduledAt);
+    if (!scheduledDate || scheduledDate.getTime() > now) continue;
+
+    const results = await sendMeetingToEmployees(meeting);
+    meeting.status = "sent";
+    meeting.sentAt = `${today()} ${timeNow()}`;
+    meeting.sentCount = results.length;
+    changed = true;
+  }
+
+  if (changed) saveDb();
 }
 
 async function handleTelegramUpdate(update) {
@@ -788,30 +840,42 @@ async function routeApi(req, res, url) {
 
   if (req.method === "POST" && url.pathname === "/api/meetings/notify") {
     const body = await readBody(req);
-    const title = body.title || "Muhim yig'ilish";
-    const time = body.time || "";
-    const location = body.location || "";
-    const message = body.message || "";
-    const text = [
-      "📣 Muhim yig'ilish",
-      `Mavzu: ${title}`,
-      time ? `Vaqt: ${time}` : "",
-      location ? `Joy: ${location}` : "",
-      message ? `Izoh: ${message}` : "",
-    ].filter(Boolean).join("\n");
-    const results = [];
-
-    for (const employee of db.employees) {
-      if (!employee.telegramChatId) continue;
-      const result = await telegram("sendMessage", {
-        chat_id: employee.telegramChatId,
-        text,
-        reply_markup: mainKeyboard(),
-      });
-      results.push({ employeeId: employee.id, ok: result.ok });
-    }
+    const results = await sendMeetingToEmployees(body);
 
     return sendJson(res, 200, { sent: results.length, results });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/meetings/scheduled") {
+    return sendJson(res, 200, db.scheduledMeetings || []);
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/meetings/scheduled") {
+    const body = await readBody(req);
+    if (!body.title || !body.scheduledAt) return sendJson(res, 400, { error: "Mavzu va reja vaqti kerak" });
+    const meeting = {
+      id: uid("meet"),
+      title: String(body.title).trim(),
+      scheduledAt: String(body.scheduledAt),
+      location: String(body.location || ""),
+      message: String(body.message || ""),
+      status: "scheduled",
+      createdAt: `${today()} ${timeNow()}`,
+    };
+    db.scheduledMeetings.unshift(meeting);
+    saveDb();
+    return sendJson(res, 201, meeting);
+  }
+
+  const scheduledMeetingSend = url.pathname.match(/^\/api\/meetings\/scheduled\/([^/]+)\/send$/);
+  if (req.method === "POST" && scheduledMeetingSend) {
+    const meeting = db.scheduledMeetings.find((item) => item.id === scheduledMeetingSend[1]);
+    if (!meeting) return sendJson(res, 404, { error: "Yig'ilish topilmadi" });
+    const results = await sendMeetingToEmployees(meeting);
+    meeting.status = "sent";
+    meeting.sentAt = `${today()} ${timeNow()}`;
+    meeting.sentCount = results.length;
+    saveDb();
+    return sendJson(res, 200, { meeting, sent: results.length, results });
   }
 
   const taskStatus = url.pathname.match(/^\/api\/tasks\/([^/]+)\/status$/);
@@ -909,4 +973,8 @@ server.listen(PORT, () => {
   console.log(`yourHR server: http://localhost:${PORT}`);
   console.log(BOT_TOKEN ? "Telegram bot token loaded" : "Telegram bot token not set");
   configureTelegramDelivery().catch((error) => console.error("Telegram setup error:", error.message));
+  processScheduledMeetings().catch((error) => console.error("Meeting scheduler error:", error.message));
+  setInterval(() => {
+    processScheduledMeetings().catch((error) => console.error("Meeting scheduler error:", error.message));
+  }, 60000);
 });
