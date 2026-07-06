@@ -109,6 +109,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [companies, setCompanies] = useState<CompanyAccount[]>(readCompanies);
   const [user, setUser] = useState<AuthUser | null>(readUser);
   const [adminCredentials, setAdminCredentials] = useState<AdminCredentials>(readAdminCredentials);
+  const [authLoaded, setAuthLoaded] = useState(false);
+  const [backendReady, setBackendReady] = useState(false);
+
+  useEffect(() => {
+    const localCompanies = readCompanies();
+    const localAdminCredentials = readAdminCredentials();
+
+    fetch("/api/auth-state")
+      .then((res) => res.ok ? res.json() : Promise.reject())
+      .then((data) => {
+        const serverCompanies = Array.isArray(data.companies) ? data.companies : [];
+        const nextCompanies = serverCompanies.length ? serverCompanies : localCompanies;
+        const nextAdminCredentials = data.adminCredentials?.username && data.adminCredentials?.password
+          ? data.adminCredentials
+          : localAdminCredentials;
+
+        setCompanies(nextCompanies);
+        setAdminCredentials(nextAdminCredentials);
+        setBackendReady(true);
+
+        if (!serverCompanies.length && localCompanies.length) {
+          fetch("/api/auth-state", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ companies: localCompanies, adminCredentials: nextAdminCredentials }),
+          }).catch(() => undefined);
+        }
+      })
+      .catch(() => setBackendReady(false))
+      .finally(() => setAuthLoaded(true));
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(COMPANIES_KEY, JSON.stringify(companies));
@@ -122,6 +153,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     localStorage.setItem(ADMIN_CREDENTIALS_KEY, JSON.stringify(adminCredentials));
   }, [adminCredentials]);
+
+  useEffect(() => {
+    if (!authLoaded || !backendReady) return;
+    fetch("/api/auth-state", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companies, adminCredentials }),
+    }).catch(() => undefined);
+  }, [adminCredentials, authLoaded, backendReady, companies]);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

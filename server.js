@@ -27,6 +27,7 @@ let telegramOffset = 0;
 const pendingReport = new Set();
 const pendingChat = new Set();
 const pendingAuth = new Map();
+const defaultAdminCredentials = { username: "admin", password: "admin123" };
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -56,6 +57,8 @@ function webhookUrl() {
 }
 
 const seed = {
+  companies: [],
+  adminCredentials: defaultAdminCredentials,
   employees: [],
   tasks: [],
   attendance: [],
@@ -126,6 +129,8 @@ function loadDb() {
 }
 
 let db = loadDb();
+db.companies = Array.isArray(db.companies) ? db.companies : [];
+db.adminCredentials = db.adminCredentials?.username && db.adminCredentials?.password ? db.adminCredentials : defaultAdminCredentials;
 ensureEmployeeCredentials();
 saveDb();
 
@@ -554,6 +559,29 @@ async function pollTelegram() {
 async function routeApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/state") {
     return sendJson(res, 200, db);
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/auth-state") {
+    return sendJson(res, 200, {
+      companies: db.companies || [],
+      adminCredentials: db.adminCredentials || defaultAdminCredentials,
+    });
+  }
+
+  if (req.method === "PUT" && url.pathname === "/api/auth-state") {
+    const body = await readBody(req);
+    if (Array.isArray(body.companies)) db.companies = body.companies;
+    if (body.adminCredentials?.username && body.adminCredentials?.password) {
+      db.adminCredentials = {
+        username: String(body.adminCredentials.username).trim(),
+        password: String(body.adminCredentials.password),
+      };
+    }
+    saveDb();
+    return sendJson(res, 200, {
+      companies: db.companies || [],
+      adminCredentials: db.adminCredentials || defaultAdminCredentials,
+    });
   }
 
   const telegramPhoto = url.pathname.match(/^\/api\/telegram\/photo\/([^/]+)$/);

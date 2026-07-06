@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Building2, Copy, Headset, Power, ShieldCheck, Users } from "lucide-react";
+import { Bell, Building2, Copy, Headset, Power, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CompanyAccount, TicketStatus } from "@/types/hr";
@@ -162,6 +162,23 @@ export default function Admin() {
       </header>
 
       <main className="max-w-[1500px] mx-auto p-4 sm:p-6 space-y-6">
+        {stats.openTickets > 0 && (
+          <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-3">
+              <Bell className="h-5 w-5 text-warning" />
+              <div>
+                <div className="font-semibold">Yangi support bildirishnomalari</div>
+                <div className="text-sm text-muted-foreground">
+                  {stats.openTickets} ta support so'rovi super admin javobini kutmoqda.
+                </div>
+              </div>
+            </div>
+            <Button className="sm:ml-auto bg-gradient-primary text-white" onClick={() => document.getElementById("admin-support")?.scrollIntoView({ behavior: "smooth" })}>
+              Supportni ko'rish
+            </Button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {[
             { label: "Kompaniyalar", value: stats.companies, icon: Building2, tone: "from-indigo-500 to-blue-500" },
@@ -317,7 +334,7 @@ export default function Admin() {
           </div>
         </div>
 
-        <div className="card-elevated p-5">
+        <div id="admin-support" className="card-elevated p-5">
           <h2 className="font-display text-xl font-bold mb-3">Support nazorati</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {tickets.slice(0, 6).map((ticket) => (
