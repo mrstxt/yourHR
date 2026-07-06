@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useHR } from "@/context/HRContext";
 import { UserRole } from "@/types/hr";
@@ -6,17 +6,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sparkles, ShieldCheck, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
-export default function Login() {
+interface LoginProps {
+  mode: "admin" | "hr";
+}
+
+export default function Login({ mode }: LoginProps) {
   const { login, companies } = useAuth();
   const { employees, tasks, attendance } = useHR();
   const navigate = useNavigate();
+  const { companySlug } = useParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("Admin");
+  const role: UserRole = mode === "admin" ? "Admin" : "HR Manager";
+  const isAdminLogin = mode === "admin";
+
+  const selectedCompany = useMemo(
+    () => companies.find((company) => company.username === companySlug),
+    [companies, companySlug]
+  );
+
+  useEffect(() => {
+    if (mode === "hr" && companySlug) {
+      setUsername(companySlug);
+    }
+  }, [companySlug, mode]);
 
   const presentCount = attendance.filter((item) => item.status !== "Kelmagan").length;
   const attendancePct = attendance.length ? Math.round((presentCount / attendance.length) * 100) : 0;
@@ -26,18 +42,6 @@ export default function Login() {
     { k: String(tasks.length), v: "Vazifa" },
     { k: `${attendancePct}%`, v: "Davomat" },
   ];
-
-  const chooseRole = (nextRole: UserRole) => {
-    setRole(nextRole);
-    if (nextRole === "Admin") {
-      setUsername("");
-      setPassword("");
-      return;
-    }
-
-    setUsername("");
-    setPassword("");
-  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,40 +105,33 @@ export default function Login() {
           </div>
 
           <div className="space-y-1.5">
-            <h1 className="font-display text-3xl font-bold">Xush kelibsiz</h1>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-accent flex items-center justify-center">
+                {isAdminLogin ? <ShieldCheck className="h-5 w-5 text-primary" /> : <Users className="h-5 w-5 text-primary" />}
+              </div>
+              <h1 className="font-display text-3xl font-bold">
+                {isAdminLogin ? "Super admin kirish" : "HR panelga kirish"}
+              </h1>
+            </div>
             <p className="text-muted-foreground text-sm">
-              Avval panel turini tanlang, keyin berilgan login-parol bilan kiring.
+              {isAdminLogin
+                ? "Faqat super admin login-paroli bilan admin panelga kiring."
+                : selectedCompany
+                  ? `${selectedCompany.name} uchun berilgan HR login-parol bilan kiring.`
+                  : "Kompaniya uchun berilgan HR login-parol bilan kiring."}
             </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {(["Admin", "HR Manager"] as UserRole[]).map(r => {
-              const active = role === r;
-              const Icon = r === "Admin" ? ShieldCheck : Users;
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => chooseRole(r)}
-                  className={cn(
-                    "rounded-xl border p-4 text-left transition-all",
-                    active ? "border-primary bg-accent shadow-glow" : "border-border hover:border-primary/40"
-                  )}
-                >
-                  <Icon className={cn("h-5 w-5 mb-2", active ? "text-primary" : "text-muted-foreground")} />
-                  <div className="font-semibold text-sm">{r}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    {r === "Admin" ? "Super admin panel" : "Kompaniya HR paneli"}
-                  </div>
-                </button>
-              );
-            })}
           </div>
 
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="username">Login</Label>
-              <Input id="username" value={username} onChange={e => setUsername(e.target.value)} placeholder={role === "Admin" ? "super-admin-login" : "company-login"} />
+              <Input
+                id="username"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder={isAdminLogin ? "super-admin-login" : "company-login"}
+                readOnly={Boolean(selectedCompany)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Parol</Label>

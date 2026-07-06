@@ -40,7 +40,8 @@ export default function Admin() {
     openTickets: tickets.filter((ticket) => ticket.status !== "Hal qilindi").length,
   }), [companies, employees.length, tickets]);
 
-  const panelLink = `${window.location.origin}/login`;
+  const hrPanelLink = `${window.location.origin}/hr/login`;
+  const companyPanelLink = (company: typeof companies[number]) => `${window.location.origin}/hr/${company.username}/login`;
 
   const saveCompany = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +86,7 @@ export default function Admin() {
   };
 
   const copyCredentials = (company: typeof companies[number]) => {
-    copy(`Panel: ${panelLink}\nLogin: ${company.username}\nParol: ${company.password}`);
+    copy(`Panel: ${companyPanelLink(company)}\nLogin: ${company.username}\nParol: ${company.password}`);
   };
 
   const openTicket = (ticketId: string) => {
@@ -122,7 +123,7 @@ export default function Admin() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => window.location.assign("/login")}>Login sahifasi</Button>
+            <Button variant="outline" onClick={() => window.location.assign("/login")}>Admin login</Button>
             <Button variant="outline" onClick={logout}>Chiqish</Button>
           </div>
         </div>
@@ -184,7 +185,7 @@ export default function Admin() {
               </div>
               <Button className="w-full bg-gradient-primary text-white shadow-glow">Login-parol yaratish</Button>
               <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-                HR panel linki: <b className="text-foreground">{panelLink}</b>
+                HR panel linki: <b className="text-foreground">{hrPanelLink}</b>
               </div>
             </form>
 
@@ -240,6 +241,7 @@ export default function Admin() {
                   <tr className="border-b border-border">
                     <th className="text-left font-medium p-4">Kompaniya</th>
                     <th className="text-left font-medium p-4">Login</th>
+                    <th className="text-left font-medium p-4">HR link</th>
                     <th className="text-left font-medium p-4">Parol</th>
                     <th className="text-left font-medium p-4">Status</th>
                     <th className="text-right font-medium p-4">Amallar</th>
@@ -253,6 +255,7 @@ export default function Admin() {
                         <div className="text-xs text-muted-foreground">{company.contactName} · {company.contactInfo}</div>
                       </td>
                       <td className="p-4 font-mono text-xs">{company.username}</td>
+                      <td className="p-4 font-mono text-xs">{companyPanelLink(company)}</td>
                       <td className="p-4 font-mono text-xs">{company.password}</td>
                       <td className="p-4">
                         <Badge variant={company.status === "active" ? "default" : "secondary"}>
