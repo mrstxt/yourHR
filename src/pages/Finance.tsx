@@ -9,7 +9,7 @@ import { Banknote, Bell, CheckCircle2, Coins, ReceiptText, TrendingUp, Wallet } 
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const PAID_KEY = "yourhr_paid_payroll_v1";
+const PAYROLL_KEY_PREFIX = "paid_payroll";
 
 interface FinanceSettings {
   companyIncome: number;
@@ -28,7 +28,7 @@ const defaultFinance: FinanceSettings = {
 };
 
 function currentPayrollKey(date = new Date()) {
-  return `${PAID_KEY}_${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return `${PAYROLL_KEY_PREFIX}_${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function isSalesEmployee(position: string, type?: string) {

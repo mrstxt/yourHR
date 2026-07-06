@@ -2,8 +2,6 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { AuthUser, CompanyAccount, UserRole } from "@/types/hr";
 import { localDate } from "@/lib/datetime";
 
-const USER_SESSION_KEY = "yourhr_user_session_v1";
-
 interface AdminCredentials {
   username: string;
   password: string;
@@ -52,14 +50,7 @@ function readCompanies() {
 }
 
 function readUser() {
-  const raw = sessionStorage.getItem(USER_SESSION_KEY);
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as AuthUser;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 function slugify(value: string) {
@@ -106,11 +97,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .catch(() => setBackendReady(false))
       .finally(() => setAuthLoaded(true));
   }, []);
-
-  useEffect(() => {
-    if (user) sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(user));
-    else sessionStorage.removeItem(USER_SESSION_KEY);
-  }, [user]);
 
   useEffect(() => {
     if (!authLoaded || !backendReady) return;
