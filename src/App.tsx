@@ -33,9 +33,9 @@ const AppRoutes = () => {
   const { user } = useAuth();
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to={user.role === "Admin" ? "/admin" : "/"} replace /> : <Login mode="admin" />} />
-      <Route path="/hr/login" element={user ? <Navigate to={user.role === "Admin" ? "/admin" : "/"} replace /> : <Login mode="hr" />} />
-      <Route path="/hr/:companySlug/login" element={user ? <Navigate to={user.role === "Admin" ? "/admin" : "/"} replace /> : <Login mode="hr" />} />
+      <Route path="/login" element={user?.role === "Admin" ? <Navigate to="/admin" replace /> : <Login mode="admin" />} />
+      <Route path="/hr/login" element={user?.role === "HR Manager" ? <Navigate to="/" replace /> : <Login mode="hr" />} />
+      <Route path="/hr/:companySlug/login" element={user?.role === "HR Manager" ? <Navigate to="/" replace /> : <Login mode="hr" />} />
       <Route path="/admin" element={<Protected role="Admin"><Admin /></Protected>} />
       <Route element={<Protected role="HR Manager"><AppLayout /></Protected>}>
         <Route path="/" element={<Dashboard />} />
