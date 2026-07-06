@@ -9,7 +9,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { Building2, Copy, Headset, Power, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { TicketStatus } from "@/types/hr";
+import { CompanyAccount, TicketStatus } from "@/types/hr";
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 28);
+}
+
+function previewCompanyUsername(form: { name: string; username: string }, companies: CompanyAccount[]) {
+  const base = slugify(form.username.trim() || form.name.trim());
+  if (!base) return "";
+
+  let username = base;
+  let index = 2;
+  while (companies.some((company) => company.username === username)) {
+    username = `${base}-${index}`;
+    index += 1;
+  }
+  return username;
+}
 
 export default function Admin() {
   const {
@@ -40,7 +61,18 @@ export default function Admin() {
     openTickets: tickets.filter((ticket) => ticket.status !== "Hal qilindi").length,
   }), [companies, employees.length, tickets]);
 
-  const hrPanelLink = `${window.location.origin}/hr/login`;
+  const previewUsername = useMemo(() => previewCompanyUsername(form, companies), [companies, form]);
+  const lastCreatedCompany = companies.find((company) => company.id === lastCreatedId);
+  const hrPanelLink = previewUsername
+    ? `${window.location.origin}/hr/${previewUsername}/login`
+    : lastCreatedCompany
+      ? `${window.location.origin}/hr/${lastCreatedCompany.username}/login`
+      : `${window.location.origin}/hr/login`;
+  const hrPanelLinkLabel = previewUsername
+    ? "Kompaniyaga mos HR panel linki"
+    : lastCreatedCompany
+      ? "Oxirgi yaratilgan HR panel linki"
+      : "Umumiy HR panel linki";
   const companyPanelLink = (company: typeof companies[number]) => `${window.location.origin}/hr/${company.username}/login`;
 
   const saveCompany = (e: React.FormEvent) => {
@@ -185,7 +217,7 @@ export default function Admin() {
               </div>
               <Button className="w-full bg-gradient-primary text-white shadow-glow">Login-parol yaratish</Button>
               <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-                HR panel linki: <b className="text-foreground">{hrPanelLink}</b>
+                {hrPanelLinkLabel}: <b className="text-foreground break-all">{hrPanelLink}</b>
               </div>
             </form>
 
