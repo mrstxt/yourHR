@@ -31,8 +31,14 @@ export interface Employee {
   avatarInitials: string;
   phone?: string;
   email?: string;
+  address?: string;
+  education?: string;
   cardNumber?: string;
   joinedAt?: string;
+  cvFileId?: string;
+  cvFileName?: string;
+  cvMimeType?: string;
+  cvUploadedAt?: string;
   telegramChatId?: string;
   telegramLogin?: string;
   telegramPassword?: string;

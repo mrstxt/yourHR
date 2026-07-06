@@ -27,6 +27,8 @@ const empty: FormData = {
   status: "Faol",
   phone: "",
   email: "",
+  address: "",
+  education: "",
   cardNumber: "",
   telegramLogin: "",
   telegramPassword: "",
@@ -132,15 +134,13 @@ export default function Employees() {
               <tr>
                 <th className="text-left font-medium py-3 px-5">Xodim</th>
                 <th className="text-left font-medium py-3 px-3">Lavozim</th>
-                <th className="text-left font-medium py-3 px-3">Maosh</th>
-                  <th className="text-left font-medium py-3 px-3">Rag'bat</th>
                 <th className="text-left font-medium py-3 px-3">Holat</th>
                 <th className="text-right font-medium py-3 px-5">Amallar</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">Xodim topilmadi</td></tr>
+                <tr><td colSpan={4} className="text-center py-12 text-muted-foreground">Xodim topilmadi</td></tr>
               )}
               {filtered.map(e => (
                 <tr key={e.id} className="border-t border-border hover:bg-muted/30 transition">
@@ -150,18 +150,12 @@ export default function Employees() {
                       <div>
                         <div className="font-semibold">{e.fullName}</div>
                         <div className="text-xs text-muted-foreground">
-                          {e.email} · Karta: {e.cardNumber || "-"} · TG: {e.telegramLogin || "-"} {e.telegramChatId ? "· ulangan" : "· ulanmagan"}
+                          {e.phone || "-"} · {e.email || "-"} · TG: {e.telegramLogin || "-"} {e.telegramChatId ? "· ulangan" : "· ulanmagan"}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="py-3 px-3">{e.position}</td>
-                  <td className="py-3 px-3 font-medium">{formatUZS(e.salary)}</td>
-                  <td className="py-3 px-3 text-xs font-semibold">
-                    {(e.compensationType === "sales" || isSalesPosition(e.position))
-                      ? `Sotuvdan ${e.salesKpiPercent ?? e.kpi ?? 0}%`
-                      : `Bonus: ${formatUZS(e.monthlyBonus ?? 0)}`}
-                  </td>
                   <td className="py-3 px-3"><EmployeeStatusBadge status={e.status} /></td>
                   <td className="py-3 px-5 text-right">
                     <DropdownMenu>
@@ -240,6 +234,8 @@ export default function Employees() {
             </div>
             <div className="space-y-1.5"><Label>Telefon</Label><Input value={form.phone ?? ""} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Email</Label><Input value={form.email ?? ""} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Manzil</Label><Input value={form.address ?? ""} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label>Qayerda o'qigan</Label><Input value={form.education ?? ""} onChange={e => setForm({ ...form, education: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Karta raqami</Label><Input value={form.cardNumber ?? ""} onChange={e => setForm({ ...form, cardNumber: e.target.value })} placeholder="8600 0000 0000 0000" /></div>
             <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
               <div>
@@ -280,6 +276,51 @@ export default function Employees() {
                 </div>
               </SheetHeader>
               <div className="space-y-5 py-6">
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <div className="font-semibold mb-3 text-sm">Xodim ma'lumotlari</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-muted-foreground">To'liq ism familya</div>
+                      <div className="font-medium">{detail.fullName}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Lavozim</div>
+                      <div className="font-medium">{detail.position}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Telefon</div>
+                      <div className="font-medium">{detail.phone || "Kiritilmagan"}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Email</div>
+                      <div className="font-medium">{detail.email || "Kiritilmagan"}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Manzil</div>
+                      <div className="font-medium">{detail.address || "Kiritilmagan"}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Qayerda o'qigan</div>
+                      <div className="font-medium">{detail.education || "Kiritilmagan"}</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-lg bg-muted/50 border border-border p-3">
+                    <div className="text-xs text-muted-foreground mb-1">CV / Resume</div>
+                    {detail.cvFileId ? (
+                      <a
+                        href={`/api/telegram/file/${encodeURIComponent(detail.cvFileId)}?name=${encodeURIComponent(detail.cvFileName || "resume")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
+                      >
+                        <Download className="h-4 w-4 mr-2" /> {detail.cvFileName || "CV/resume"}
+                      </a>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">Bot orqali hali CV yuklanmagan</div>
+                    )}
+                    {detail.cvUploadedAt && <div className="text-[11px] text-muted-foreground mt-1">Yuklangan: {detail.cvUploadedAt}</div>}
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-muted/50 p-4">
                     <div className="text-xs text-muted-foreground">Rag'bat turi</div>

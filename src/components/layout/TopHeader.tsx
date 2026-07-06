@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Bell, Menu, Search, LogOut, User as UserIcon, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, s
   const { employees, reports, tickets, tasks, chats } = useHR();
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const previousIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
 
   const chatNotifications = Object.entries(chats)
@@ -69,14 +71,39 @@ export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, s
       path: "/tasks",
     }));
 
-  const notifications = [
+  const notifications = useMemo(() => [
     ...chatNotifications,
     ...reportNotifications,
     ...supportNotifications,
     ...taskNotifications,
-  ].slice(0, 12);
+  ].slice(0, 12), [chatNotifications, reportNotifications, supportNotifications, taskNotifications]);
 
-  const notificationCount = chatNotifications.length + reportNotifications.length + supportNotifications.length + taskNotifications.length;
+  const unreadNotifications = notifications.filter((notification) => !readIds.has(notification.id));
+  const notificationCount = unreadNotifications.length;
+
+  useEffect(() => {
+    const currentIds = new Set(notifications.map((notification) => notification.id));
+    const hasNew = notifications.some((notification) => !previousIdsRef.current.has(notification.id) && !readIds.has(notification.id));
+    previousIdsRef.current = currentIds;
+
+    if (!hasNew) return;
+    try {
+      const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      const ctx = new AudioContextCtor();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = 880;
+      gain.gain.value = 0.04;
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.16);
+    } catch {
+      undefined;
+    }
+  }, [notifications, readIds]);
 
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border">
@@ -97,10 +124,12 @@ export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, s
         </div>
 
         <div className="hidden lg:flex items-center px-3 py-1.5 rounded-lg bg-muted/50 text-xs text-muted-foreground font-medium">
-          {now.toLocaleDateString("uz-UZ", { weekday: "short", day: "2-digit", month: "short" })} · {now.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          {now.toLocaleDateString("uz-UZ", { timeZone: "Asia/Tashkent", weekday: "short", day: "2-digit", month: "short" })} · {now.toLocaleTimeString("uz-UZ", { timeZone: "Asia/Tashkent", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </div>
 
-        <Popover>
+        <Popover onOpenChange={(open) => {
+          if (open) setReadIds(new Set(notifications.map((notification) => notification.id)));
+        }}>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
@@ -125,7 +154,10 @@ export function TopHeader({ title, description, onToggleSidebar, onOpenMobile, s
                 <button
                   key={n.id}
                   type="button"
-                  onClick={() => navigate(n.path)}
+                  onClick={() => {
+                    setReadIds((prev) => new Set(prev).add(n.id));
+                    navigate(n.path);
+                  }}
                   className="w-full px-3 py-2.5 border-b border-border last:border-0 hover:bg-muted/50 text-sm text-left"
                 >
                   <div className="text-[11px] font-semibold uppercase text-primary">{n.title}</div>

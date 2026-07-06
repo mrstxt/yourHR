@@ -27,6 +27,7 @@ let telegramOffset = 0;
 const pendingReport = new Set();
 const pendingChat = new Set();
 const pendingAuth = new Map();
+const pendingCv = new Set();
 const defaultAdminCredentials = { username: "admin", password: "admin123" };
 const defaultFinanceSettings = {
   companyIncome: 0,
@@ -47,14 +48,20 @@ const mime = {
 
 function today() {
   const value = new Date();
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tashkent",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const year = parts.find((part) => part.type === "year")?.value || String(value.getFullYear());
+  const month = parts.find((part) => part.type === "month")?.value || String(value.getMonth() + 1).padStart(2, "0");
+  const day = parts.find((part) => part.type === "day")?.value || String(value.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 const uid = (prefix) => `${prefix}${Date.now()}${crypto.randomBytes(2).toString("hex")}`;
-const timeNow = () => new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", hour12: false });
+const timeNow = () => new Date().toLocaleTimeString("uz-UZ", { timeZone: "Asia/Tashkent", hour: "2-digit", minute: "2-digit", hour12: false });
 
 function webhookUrl() {
   const base = PUBLIC_URL.trim().replace(/\/$/, "");
@@ -186,6 +193,7 @@ async function setBotCommands() {
       { command: "start", description: "Xodim sifatida botga ulanish" },
       { command: "login", description: "Login va parol bilan kirish" },
       { command: "tasks", description: "Menga biriktirilgan vazifalar" },
+      { command: "cv", description: "CV yoki resume yuborish" },
       { command: "help", description: "Botdan foydalanish" },
     ],
   });
@@ -216,7 +224,7 @@ function mainKeyboard() {
     keyboard: [
       [{ text: "✅ Keldim" }, { text: "🏁 Ketdim" }],
       [{ text: "📋 Mening vazifalarim" }, { text: "📝 Kunlik hisobot" }],
-      [{ text: "💬 HR bilan chat" }],
+      [{ text: "💬 HR bilan chat" }, { text: "📎 CV yuborish" }],
     ],
     resize_keyboard: true,
   };
@@ -352,6 +360,24 @@ function messagePhotoAttachment(message) {
   };
 }
 
+function messageCvAttachment(message) {
+  if (message.document?.file_id) {
+    return {
+      fileId: message.document.file_id,
+      fileName: message.document.file_name || "resume",
+      mimeType: message.document.mime_type || "application/octet-stream",
+    };
+  }
+
+  const photo = messagePhotoAttachment(message);
+  if (!photo) return null;
+  return {
+    fileId: photo.fileId,
+    fileName: "resume-photo.jpg",
+    mimeType: "image/jpeg",
+  };
+}
+
 function addEmployeeChat(employee, text, fromMe = false) {
   db.chats[employee.id] = [
     ...(db.chats[employee.id] || []),
@@ -363,6 +389,7 @@ async function handleTelegramUpdate(update) {
   if (update.message) {
     const chatId = String(update.message.chat.id);
     const photoAttachment = messagePhotoAttachment(update.message);
+    const cvAttachment = messageCvAttachment(update.message);
     const text = String(update.message.text || update.message.caption || "").trim();
     const parts = text.split(/\s+/);
     const command = parts[0];
@@ -461,6 +488,26 @@ async function handleTelegramUpdate(update) {
       return;
     }
 
+    if (pendingCv.has(chatId)) {
+      if (!cvAttachment) {
+        await telegram("sendMessage", {
+          chat_id: chatId,
+          text: "CV yoki resume faylini document/PDF/rasm qilib yuboring.",
+          reply_markup: { remove_keyboard: true },
+        });
+        return;
+      }
+
+      pendingCv.delete(chatId);
+      employee.cvFileId = cvAttachment.fileId;
+      employee.cvFileName = cvAttachment.fileName;
+      employee.cvMimeType = cvAttachment.mimeType;
+      employee.cvUploadedAt = `${today()} ${timeNow()}`;
+      saveDb();
+      await telegram("sendMessage", { chat_id: chatId, text: "✅ CV/resume HR panelga yuklandi.", reply_markup: mainKeyboard() });
+      return;
+    }
+
     if (command === "/tasks" || text === "📋 Mening vazifalarim") {
       await sendEmployeeTasks(chatId, employee.id);
       return;
@@ -510,10 +557,20 @@ async function handleTelegramUpdate(update) {
       return;
     }
 
+    if (command === "/cv" || text === "📎 CV yuborish") {
+      pendingCv.add(chatId);
+      await telegram("sendMessage", {
+        chat_id: chatId,
+        text: "CV yoki resume faylini yuboring. PDF, Word document yoki rasm bo'lishi mumkin.",
+        reply_markup: { remove_keyboard: true },
+      });
+      return;
+    }
+
     if (command === "/help") {
       await telegram("sendMessage", {
         chat_id: chatId,
-        text: "Tugmalar orqali ishlang:\n✅ Keldim\n🏁 Ketdim\n📋 Mening vazifalarim\n📝 Kunlik hisobot\n💬 HR bilan chat",
+        text: "Tugmalar orqali ishlang:\n✅ Keldim\n🏁 Ketdim\n📋 Mening vazifalarim\n📝 Kunlik hisobot\n💬 HR bilan chat\n📎 CV yuborish",
         reply_markup: mainKeyboard(),
       });
       return;
@@ -570,6 +627,29 @@ async function pollTelegram() {
 async function routeApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/state") {
     return sendJson(res, 200, db);
+  }
+
+  const telegramFile = url.pathname.match(/^\/api\/telegram\/file\/([^/]+)$/);
+  if (req.method === "GET" && telegramFile) {
+    if (!BOT_TOKEN) return sendJson(res, 503, { error: "Telegram bot token sozlanmagan" });
+
+    const fileId = decodeURIComponent(telegramFile[1]);
+    const fileInfo = await telegram("getFile", { file_id: fileId });
+    if (!fileInfo.ok || !fileInfo.result?.file_path) return sendJson(res, 404, { error: "Fayl topilmadi" });
+
+    const fileResponse = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.result.file_path}`);
+    if (!fileResponse.ok) return sendJson(res, 404, { error: "Faylni yuklab bo'lmadi" });
+
+    const contentType = fileResponse.headers.get("content-type") || "application/octet-stream";
+    const fileName = url.searchParams.get("name") || path.basename(fileInfo.result.file_path);
+    const buffer = Buffer.from(await fileResponse.arrayBuffer());
+    res.writeHead(200, {
+      "Content-Type": contentType,
+      "Content-Disposition": `inline; filename="${String(fileName).replace(/"/g, "")}"`,
+      "Cache-Control": "private, max-age=3600",
+    });
+    res.end(buffer);
+    return;
   }
 
   if (req.method === "GET" && url.pathname === "/api/auth-state") {
