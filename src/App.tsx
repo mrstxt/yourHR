@@ -16,6 +16,7 @@ import Finance from "./pages/Finance";
 import Analytics from "./pages/Analytics";
 import Chat from "./pages/Chat";
 import Support from "./pages/Support";
+import Notifications from "./pages/Notifications";
 import Rules from "./pages/Rules";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
@@ -47,6 +48,7 @@ const AppRoutes = () => {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/support" element={<Support />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/rules" element={<Rules />} />
       </Route>
       <Route path="*" element={<NotFound />} />

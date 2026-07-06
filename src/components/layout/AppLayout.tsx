@@ -15,6 +15,7 @@ const routeMeta: Record<string, { title: string; description: string }> = {
   "/analytics": { title: "Analitika", description: "KPI va samaradorlik tahlili" },
   "/chat": { title: "Chat", description: "Jamoa bilan bevosita muloqot" },
   "/support": { title: "Support", description: "Xodimlar tomonidan yuborilgan so'rovlar" },
+  "/notifications": { title: "Bildirishnomalar", description: "Yig'ilish va muhim xabarlarni yuborish" },
   "/rules": { title: "Qoidalar", description: "HR jarima va bonus sozlamalari" },
 };
 

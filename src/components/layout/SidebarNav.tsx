@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, CalendarCheck, ListChecks, FileText, Wallet, LineChart, MessagesSquare, LifeBuoy, Settings, Sparkles } from "lucide-react";
+import { LayoutDashboard, Users, CalendarCheck, ListChecks, FileText, Wallet, LineChart, MessagesSquare, LifeBuoy, Settings, Sparkles, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavGroup {
@@ -22,6 +22,7 @@ const nav: NavGroup[] = [
   { label: "Aloqa", items: [
     { to: "/chat", label: "Chat", icon: MessagesSquare },
     { to: "/support", label: "Support", icon: LifeBuoy },
+    { to: "/notifications", label: "Bildirishnomalar", icon: Bell },
   ]},
   { label: "Sozlamalar", items: [{ to: "/rules", label: "Qoidalar", icon: Settings }] },
 ];
