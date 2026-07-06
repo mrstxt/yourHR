@@ -80,7 +80,19 @@ const seed = {
   attendance: [],
   reports: [],
   tickets: [],
-  rules: { lateFine: 50000, taskDelayFine: 100000, minKpi: 70, earlyBonus: 200000 },
+  rules: {
+    lateFine: 50000,
+    taskDelayFine: 100000,
+    minKpi: 70,
+    earlyBonus: 200000,
+    workStart: "09:00",
+    workEnd: "18:00",
+    graceMinutes: 10,
+    fineAfterMinutes: 30,
+    warningAfterMinutes: 60,
+    attendanceFineAmount: 50000,
+    companyPolicy: "Ishga o'z vaqtida kelish, vazifalarni muddatida bajarish va HR bilan aloqa qilish majburiy.",
+  },
   chats: {},
 };
 
@@ -759,6 +771,34 @@ async function routeApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/payroll/notify") {
     const body = await readBody(req);
     const text = body.message || "💳 Oylik hisob-kitobi tayyorlanmoqda. Iltimos, HR xabarlarini kuzatib boring.";
+    const results = [];
+
+    for (const employee of db.employees) {
+      if (!employee.telegramChatId) continue;
+      const result = await telegram("sendMessage", {
+        chat_id: employee.telegramChatId,
+        text,
+        reply_markup: mainKeyboard(),
+      });
+      results.push({ employeeId: employee.id, ok: result.ok });
+    }
+
+    return sendJson(res, 200, { sent: results.length, results });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/meetings/notify") {
+    const body = await readBody(req);
+    const title = body.title || "Muhim yig'ilish";
+    const time = body.time || "";
+    const location = body.location || "";
+    const message = body.message || "";
+    const text = [
+      "📣 Muhim yig'ilish",
+      `Mavzu: ${title}`,
+      time ? `Vaqt: ${time}` : "",
+      location ? `Joy: ${location}` : "",
+      message ? `Izoh: ${message}` : "",
+    ].filter(Boolean).join("\n");
     const results = [];
 
     for (const employee of db.employees) {

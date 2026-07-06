@@ -127,7 +127,8 @@ export default function Finance() {
     const employeeAttendance = attendance.filter((item) => item.employeeId === employee.id);
     const lateCount = employeeAttendance.filter((item) => item.status === "Kechikdi").length;
     const absentCount = employeeAttendance.filter((item) => item.status === "Kelmagan").length;
-    const fine = lateCount * rules.lateFine + absentCount * rules.lateFine * 2;
+    const attendanceFine = rules.attendanceFineAmount ?? rules.lateFine;
+    const fine = lateCount * attendanceFine + absentCount * attendanceFine * 2;
 
     const employeeTasks = tasks.filter((task) => task.employeeId === employee.id);
     const completedTasks = employeeTasks.filter((task) => task.status === "Bajarildi").length;

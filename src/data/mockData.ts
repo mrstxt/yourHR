@@ -55,6 +55,13 @@ export const initialRules: RuleSettings = {
   taskDelayFine: 100000,
   minKpi: 70,
   earlyBonus: 200000,
+  workStart: "09:00",
+  workEnd: "18:00",
+  graceMinutes: 10,
+  fineAfterMinutes: 30,
+  warningAfterMinutes: 60,
+  attendanceFineAmount: 50000,
+  companyPolicy: "Ishga o'z vaqtida kelish, vazifalarni muddatida bajarish va HR bilan aloqa qilish majburiy.",
 };
 
 export const initialChats: Record<string, ChatMessage[]> = {

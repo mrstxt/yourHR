@@ -97,6 +97,13 @@ export interface RuleSettings {
   taskDelayFine: number;
   minKpi: number;
   earlyBonus: number;
+  workStart: string;
+  workEnd: string;
+  graceMinutes: number;
+  fineAfterMinutes: number;
+  warningAfterMinutes: number;
+  attendanceFineAmount: number;
+  companyPolicy: string;
 }
 
 export interface ChatMessage {
