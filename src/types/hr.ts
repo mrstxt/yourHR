@@ -5,6 +5,9 @@ export type AttendanceStatus = "Vaqtida" | "Kechikdi" | "Kelmagan" | "Erta ketdi
 export type ReportStatus = "Kutilmoqda" | "Tasdiqlangan" | "Rad etilgan";
 export type TicketStatus = "Ochiq" | "Jarayonda" | "Hal qilindi";
 export type UserRole = "Admin" | "HR Manager";
+export type LeadStage = "Yangi lid" | "Bog'lanildi" | "Qiziqish bildirdi" | "Taklif yuborildi" | "Muzokara" | "G'olib" | "Yo'qotilgan";
+export type LeadSource = "Telegram" | "Sayt forma" | "Qo'lda" | "WhatsApp" | "Instagram" | "Facebook";
+export type LostReason = "Narx" | "Vaqt" | "Ishonchsizlik" | "Mahsulot mos kelmadi" | "Raqobatchi";
 
 export interface CompanyAccount {
   id: string;
@@ -112,6 +115,22 @@ export interface ChatMessage {
   fromMe: boolean;
   text: string;
   time: string;
+}
+
+export interface Lead {
+  id: string;
+  name: string;
+  phone: string;
+  source: LeadSource;
+  ownerId: string;
+  ownerName: string;
+  stage: LeadStage;
+  value: number;
+  createdAt: string;
+  lastContactAt: string;
+  slaHours: number;
+  notes: string[];
+  lostReason?: LostReason;
 }
 
 export interface AuthUser {

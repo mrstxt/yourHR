@@ -1,4 +1,4 @@
-import { Employee, Task, Attendance, DailyReport, SupportTicket, RuleSettings, ChatMessage } from "@/types/hr";
+import { Employee, Task, Attendance, DailyReport, SupportTicket, RuleSettings, ChatMessage, Lead } from "@/types/hr";
 import { localDate } from "@/lib/datetime";
 
 const today = new Date();
@@ -73,3 +73,63 @@ export const initialChats: Record<string, ChatMessage[]> = {
     { id: "m3", employeeId: "e3", fromMe: false, text: "Login mockuplarini yubordim, ko'rib chiqing", time: "10:30" },
   ],
 };
+
+export const initialLeads: Lead[] = [
+  {
+    id: "l1",
+    name: "Akmal Sobirov",
+    phone: "+998 90 111 22 33",
+    source: "Telegram",
+    ownerId: "e7",
+    ownerName: "Zilola Abdullayeva",
+    stage: "Yangi lid",
+    value: 12000000,
+    createdAt: daysAgo(1),
+    lastContactAt: daysAgo(1),
+    slaHours: 24,
+    notes: ["Bot orqali qiziqish bildirdi", "Narx paketlari yuborilishi kerak"],
+  },
+  {
+    id: "l2",
+    name: "Madina Group",
+    phone: "+998 91 222 33 44",
+    source: "Sayt forma",
+    ownerId: "e7",
+    ownerName: "Zilola Abdullayeva",
+    stage: "Taklif yuborildi",
+    value: 35000000,
+    createdAt: daysAgo(4),
+    lastContactAt: daysAgo(3),
+    slaHours: 48,
+    notes: ["Demo ko'rdi", "PDF taklif yuborildi"],
+  },
+  {
+    id: "l3",
+    name: "Bek Invest",
+    phone: "+998 93 333 44 55",
+    source: "Qo'lda",
+    ownerId: "e1",
+    ownerName: "Aziza Karimova",
+    stage: "G'olib",
+    value: 28000000,
+    createdAt: daysAgo(10),
+    lastContactAt: daysAgo(1),
+    slaHours: 48,
+    notes: ["Shartnoma yopildi", "Bonus KPIga bog'landi"],
+  },
+  {
+    id: "l4",
+    name: "Yangi Bozor LLC",
+    phone: "+998 94 444 55 66",
+    source: "Instagram",
+    ownerId: "e7",
+    ownerName: "Zilola Abdullayeva",
+    stage: "Yo'qotilgan",
+    value: 15000000,
+    createdAt: daysAgo(7),
+    lastContactAt: daysAgo(6),
+    slaHours: 24,
+    notes: ["Raqobatchi yechim tanlandi"],
+    lostReason: "Raqobatchi",
+  },
+];

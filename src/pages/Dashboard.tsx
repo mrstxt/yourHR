@@ -1,18 +1,27 @@
 import { useHR } from "@/context/HRContext";
 import { AvatarBubble } from "@/components/AvatarBubble";
 import { AttendanceStatusBadge } from "@/components/StatusBadges";
-import { Users, ClipboardCheck, Clock, FileClock, TrendingUp, ArrowUpRight, AlertTriangle, LifeBuoy } from "lucide-react";
+import { Users, ClipboardCheck, Clock, FileClock, TrendingUp, ArrowUpRight, AlertTriangle, LifeBuoy, BriefcaseBusiness, Trophy } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from "recharts";
 import { cn } from "@/lib/utils";
+import { formatUZS } from "@/lib/format";
 
 interface KPI { label: string; value: string; delta: string; positive?: boolean; icon: React.ComponentType<{ className?: string }>; gradient: string; }
 
 export default function Dashboard() {
-  const { employees, tasks, attendance, reports, tickets } = useHR();
+  const { employees, tasks, attendance, reports, tickets, leads } = useHR();
 
   const activeTasks = tasks.filter(t => t.status === "Bajarilmoqda" || t.status === "Tasdiqlangan").length;
   const presentToday = attendance.filter(a => a.status !== "Kelmagan").length;
   const pendingReports = reports.filter(r => r.status === "Kutilmoqda").length;
+  const openLeads = leads.filter(l => !["G'olib", "Yo'qotilgan"].includes(l.stage));
+  const wonLeads = leads.filter(l => l.stage === "G'olib");
+  const wonTotal = wonLeads.reduce((sum, lead) => sum + lead.value, 0);
+  const brokenSlaLeads = openLeads.filter((lead) => {
+    const lastContact = new Date(lead.lastContactAt).getTime();
+    return !Number.isNaN(lastContact) && Date.now() - lastContact > lead.slaHours * 60 * 60 * 1000;
+  });
+  const conversion = leads.length ? Math.round((wonLeads.length / leads.length) * 100) : 0;
 
   const kpis: KPI[] = [
     { label: "Jami xodimlar", value: String(employees.length), delta: "+2 shu oy", positive: true, icon: Users, gradient: "from-indigo-500 to-blue-500" },
@@ -175,6 +184,29 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {[
+          { label: "Ochiq lidlar", value: String(openLeads.length), detail: "CRM voronka", icon: BriefcaseBusiness, tone: "text-primary" },
+          { label: "SLA buzilgan", value: String(brokenSlaLeads.length), detail: "Tez aloqa kerak", icon: AlertTriangle, tone: "text-warning" },
+          { label: "G'olib bitimlar", value: String(wonLeads.length), detail: formatUZS(wonTotal), icon: Trophy, tone: "text-success" },
+          { label: "Konversiya", value: `${conversion}%`, detail: "lid -> g'olib", icon: TrendingUp, tone: "text-info" },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="card-elevated p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">{item.label}</div>
+                  <div className={cn("mt-2 font-display text-3xl font-bold", item.tone)}>{item.value}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{item.detail}</div>
+                </div>
+                <Icon className={cn("h-5 w-5", item.tone)} />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Recent activity + Today attendance */}

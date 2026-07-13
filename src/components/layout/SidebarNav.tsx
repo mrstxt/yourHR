@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, CalendarCheck, ListChecks, FileText, Wallet, LineChart, MessagesSquare, LifeBuoy, Settings, Sparkles, Bell } from "lucide-react";
+import { LayoutDashboard, Users, CalendarCheck, ListChecks, FileText, Wallet, LineChart, MessagesSquare, LifeBuoy, Settings, Sparkles, Bell, BriefcaseBusiness, Bot, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavGroup {
@@ -17,10 +17,15 @@ const nav: NavGroup[] = [
     { to: "/tasks", label: "Vazifalar", icon: ListChecks },
     { to: "/reports", label: "Kunlik hisobotlar", icon: FileText },
   ]},
+  { label: "Sotuv", items: [
+    { to: "/crm", label: "CRM voronka", icon: BriefcaseBusiness },
+    { to: "/automation", label: "Avtomatizatsiya", icon: Workflow },
+  ]},
   { label: "Moliya", items: [{ to: "/finance", label: "Moliyaviy holat", icon: Wallet }] },
   { label: "Tahlil", items: [{ to: "/analytics", label: "Analitika", icon: LineChart }] },
   { label: "Aloqa", items: [
     { to: "/chat", label: "Chat", icon: MessagesSquare },
+    { to: "/employee-portal", label: "Xodim web-paneli", icon: Bot },
     { to: "/support", label: "Support", icon: LifeBuoy },
     { to: "/notifications", label: "Bildirishnomalar", icon: Bell },
   ]},

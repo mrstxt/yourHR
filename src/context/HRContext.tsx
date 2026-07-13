@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { Employee, Task, Attendance, DailyReport, SupportTicket, RuleSettings, ChatMessage, TaskStatus, ReportStatus, TicketStatus } from "@/types/hr";
+import { Employee, Task, Attendance, DailyReport, SupportTicket, RuleSettings, ChatMessage, TaskStatus, ReportStatus, TicketStatus, Lead, LeadStage, LostReason } from "@/types/hr";
 import {
   initialAttendance,
   initialChats,
@@ -8,6 +8,7 @@ import {
   initialRules,
   initialTasks,
   initialTickets,
+  initialLeads,
 } from "@/data/mockData";
 import { localDate, localTime } from "@/lib/datetime";
 
@@ -19,6 +20,7 @@ interface HRContextValue {
   tickets: SupportTicket[];
   rules: RuleSettings;
   chats: Record<string, ChatMessage[]>;
+  leads: Lead[];
   addEmployee: (e: Omit<Employee, "id" | "avatarInitials">) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   deleteEmployee: (id: string) => void;
@@ -30,6 +32,9 @@ interface HRContextValue {
   updateTicket: (id: string, patch: Partial<SupportTicket>) => void;
   sendMessage: (employeeId: string, text: string) => void;
   updateRules: (r: RuleSettings) => void;
+  addLead: (lead: Omit<Lead, "id" | "createdAt" | "lastContactAt" | "notes"> & { note?: string }) => { ok: boolean; message: string };
+  updateLeadStage: (id: string, stage: LeadStage, options?: { lostReason?: LostReason; note?: string }) => { ok: boolean; message: string };
+  addLeadNote: (id: string, note: string) => void;
 }
 
 const HRContext = createContext<HRContextValue | null>(null);
@@ -42,10 +47,11 @@ interface StoredHRData {
   tickets: SupportTicket[];
   rules: RuleSettings;
   chats: Record<string, ChatMessage[]>;
+  leads: Lead[];
 }
 
 function readStoredData(): StoredHRData {
-  return {
+  const fallback = {
     employees: initialEmployees,
     tasks: initialTasks,
     attendance: initialAttendance,
@@ -53,7 +59,14 @@ function readStoredData(): StoredHRData {
     tickets: initialTickets,
     rules: initialRules,
     chats: initialChats,
+    leads: initialLeads,
   };
+  try {
+    const raw = localStorage.getItem("mizaam-hr-state");
+    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function initials(name: string) {
@@ -71,6 +84,7 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [tickets, setTickets] = useState<SupportTicket[]>(stored.tickets);
   const [rules, setRules] = useState<RuleSettings>(stored.rules);
   const [chats, setChats] = useState<Record<string, ChatMessage[]>>(stored.chats);
+  const [leads, setLeads] = useState<Lead[]>(stored.leads);
 
   useEffect(() => {
     fetch("/api/state")
@@ -83,6 +97,7 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setTickets(data.tickets ?? stored.tickets);
         setRules(data.rules ?? stored.rules);
         setChats(data.chats ?? stored.chats);
+        setLeads(data.leads ?? stored.leads);
         setBackendReady(true);
       })
       .catch(() => setBackendReady(false))
@@ -102,6 +117,7 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           setTickets(data.tickets ?? []);
           setRules(data.rules ?? initialRules);
           setChats(data.chats ?? {});
+          setLeads(data.leads ?? initialLeads);
         })
         .catch(() => undefined);
     }, 5000);
@@ -110,17 +126,18 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   useEffect(() => {
     if (!loaded) return;
+    localStorage.setItem("mizaam-hr-state", JSON.stringify({ employees, tasks, attendance, reports, tickets, rules, chats, leads }));
     if (backendReady) {
       fetch("/api/state", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employees, tasks, attendance, reports, tickets, rules, chats }),
+        body: JSON.stringify({ employees, tasks, attendance, reports, tickets, rules, chats, leads }),
       }).catch(() => undefined);
     }
-  }, [backendReady, loaded, employees, tasks, attendance, reports, tickets, rules, chats]);
+  }, [backendReady, loaded, employees, tasks, attendance, reports, tickets, rules, chats, leads]);
 
   const value = useMemo<HRContextValue>(() => ({
-    employees, tasks, attendance, reports, tickets, rules, chats,
+    employees, tasks, attendance, reports, tickets, rules, chats, leads,
     addEmployee: (e) => {
       const fallback = {
         ...e,
@@ -201,7 +218,62 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       }));
     },
     updateRules: (r) => setRules(r),
-  }), [backendReady, employees, tasks, attendance, reports, tickets, rules, chats]);
+    addLead: (lead) => {
+      const duplicate = leads.find((item) => item.phone.replace(/\D/g, "") === lead.phone.replace(/\D/g, ""));
+      const employee = employees.find((item) => item.id === lead.ownerId);
+      const ownerName = employee?.fullName || lead.ownerName || "Mas'ul belgilanmagan";
+      const note = lead.note?.trim() || "Lid qo'shildi";
+
+      if (duplicate) {
+        setLeads(prev => prev.map(item => item.id === duplicate.id ? {
+          ...item,
+          name: lead.name || item.name,
+          source: lead.source,
+          ownerId: lead.ownerId,
+          ownerName,
+          value: Math.max(item.value, Number(lead.value || 0)),
+          lastContactAt: localDate(),
+          notes: [`Dublikat birlashtirildi: ${note}`, ...item.notes],
+        } : item));
+        return { ok: true, message: "Dublikat lid topildi va mavjud kartochkaga birlashtirildi" };
+      }
+
+      const nextLead: Lead = {
+        ...lead,
+        id: `l${Date.now()}`,
+        ownerName,
+        value: Number(lead.value || 0),
+        createdAt: localDate(),
+        lastContactAt: localDate(),
+        notes: [note],
+      };
+      setLeads(prev => [nextLead, ...prev]);
+      return { ok: true, message: "Yangi lid qo'shildi" };
+    },
+    updateLeadStage: (id, stage, options) => {
+      if (stage === "Yo'qotilgan" && !options?.lostReason) {
+        return { ok: false, message: "Yo'qotilgan lid uchun sabab majburiy" };
+      }
+
+      setLeads(prev => prev.map(lead => lead.id === id ? {
+        ...lead,
+        stage,
+        lostReason: stage === "Yo'qotilgan" ? options?.lostReason : undefined,
+        lastContactAt: localDate(),
+        notes: options?.note ? [options.note, ...lead.notes] : lead.notes,
+      } : lead));
+      return { ok: true, message: "Lid bosqichi yangilandi" };
+    },
+    addLeadNote: (id, note) => {
+      const clean = note.trim();
+      if (!clean) return;
+      setLeads(prev => prev.map(lead => lead.id === id ? {
+        ...lead,
+        lastContactAt: localDate(),
+        notes: [clean, ...lead.notes],
+      } : lead));
+    },
+  }), [backendReady, employees, tasks, attendance, reports, tickets, rules, chats, leads]);
 
   return <HRContext.Provider value={value}>{children}</HRContext.Provider>;
 };

@@ -20,6 +20,9 @@ import Notifications from "./pages/Notifications";
 import Rules from "./pages/Rules";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
+import CRM from "./pages/CRM";
+import EmployeePortal from "./pages/EmployeePortal";
+import Automation from "./pages/Automation";
 
 const queryClient = new QueryClient();
 
@@ -45,10 +48,13 @@ const AppRoutes = () => {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/finance" element={<Finance />} />
+        <Route path="/crm" element={<CRM />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/employee-portal" element={<EmployeePortal />} />
         <Route path="/support" element={<Support />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/automation" element={<Automation />} />
         <Route path="/rules" element={<Rules />} />
       </Route>
       <Route path="*" element={<NotFound />} />

@@ -12,10 +12,13 @@ const routeMeta: Record<string, { title: string; description: string }> = {
   "/tasks": { title: "Vazifalar", description: "Vazifalar taqsimoti va bajarilishi" },
   "/reports": { title: "Kunlik hisobotlar", description: "Xodimlar tomonidan yuborilgan hisobotlar" },
   "/finance": { title: "Moliyaviy holat", description: "Maosh, bonus va jarima hisob-kitobi" },
+  "/crm": { title: "CRM voronka", description: "Lidlar, SLA, konversiya va g'olib bitimlar nazorati" },
   "/analytics": { title: "Analitika", description: "KPI va samaradorlik tahlili" },
   "/chat": { title: "Chat", description: "Jamoa bilan bevosita muloqot" },
+  "/employee-portal": { title: "Xodim web-paneli", description: "Xodim uchun vazifa, hisobot va push bildirishnoma preview" },
   "/support": { title: "Support", description: "Xodimlar tomonidan yuborilgan so'rovlar" },
   "/notifications": { title: "Bildirishnomalar", description: "Yig'ilish va muhim xabarlarni yuborish" },
+  "/automation": { title: "Avtomatizatsiya", description: "Integratsiyalar, marketing, xavfsizlik va premium roadmap" },
   "/rules": { title: "Qoidalar", description: "HR jarima va bonus sozlamalari" },
 };
 
@@ -23,7 +26,7 @@ export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
-  const meta = routeMeta[pathname] ?? { title: "yourHR Pro", description: "" };
+  const meta = routeMeta[pathname] ?? { title: "MIZAAM", description: "" };
 
   return (
     <div className="min-h-screen bg-background">
