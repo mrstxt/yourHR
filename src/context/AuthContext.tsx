@@ -40,17 +40,37 @@ const defaultAdminCredentials: AdminCredentials = {
   username: "admin",
   password: "admin123",
 };
+const storageKeys = {
+  adminCredentials: "mizaam-admin-credentials",
+  companies: "mizaam-companies",
+  user: "mizaam-user",
+};
+
+function readJson<T>(key: string, fallback: T): T {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) as T : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key: string, value: unknown) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
 
 function readAdminCredentials() {
-  return defaultAdminCredentials;
+  const credentials = readJson<AdminCredentials>(storageKeys.adminCredentials, defaultAdminCredentials);
+  return credentials.username && credentials.password ? credentials : defaultAdminCredentials;
 }
 
 function readCompanies() {
-  return seedCompanies;
+  const companies = readJson<CompanyAccount[]>(storageKeys.companies, seedCompanies);
+  return Array.isArray(companies) ? companies : seedCompanies;
 }
 
 function readUser() {
-  return null;
+  return readJson<AuthUser | null>(storageKeys.user, null);
 }
 
 function slugify(value: string) {
@@ -92,11 +112,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setCompanies(serverCompanies);
         setAdminCredentials(nextAdminCredentials);
+        writeJson(storageKeys.companies, serverCompanies);
+        writeJson(storageKeys.adminCredentials, nextAdminCredentials);
         setBackendReady(true);
       })
       .catch(() => setBackendReady(false))
       .finally(() => setAuthLoaded(true));
   }, []);
+
+  useEffect(() => {
+    writeJson(storageKeys.companies, companies);
+  }, [companies]);
+
+  useEffect(() => {
+    writeJson(storageKeys.adminCredentials, adminCredentials);
+  }, [adminCredentials]);
+
+  useEffect(() => {
+    if (user) {
+      writeJson(storageKeys.user, user);
+      return;
+    }
+
+    localStorage.removeItem(storageKeys.user);
+  }, [user]);
 
   useEffect(() => {
     if (!authLoaded || !backendReady) return;
