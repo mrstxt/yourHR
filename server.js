@@ -80,6 +80,7 @@ const seed = {
   attendance: [],
   reports: [],
   tickets: [],
+  leads: [],
   scheduledMeetings: [],
   rules: {
     lateFine: 50000,
@@ -159,6 +160,7 @@ function loadDb() {
 
 let db = loadDb();
 db.companies = Array.isArray(db.companies) ? db.companies : [];
+db.leads = Array.isArray(db.leads) ? db.leads : [];
 db.adminCredentials = db.adminCredentials?.username && db.adminCredentials?.password ? db.adminCredentials : defaultAdminCredentials;
 db.financeSettings = { ...defaultFinanceSettings, ...(db.financeSettings || {}) };
 db.paidPayroll = db.paidPayroll && typeof db.paidPayroll === "object" ? db.paidPayroll : {};
@@ -399,6 +401,118 @@ function addEmployeeChat(employee, text, fromMe = false) {
   ];
 }
 
+function normalizePhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 9) return `998${digits}`;
+  return digits;
+}
+
+function extractPhone(text = "") {
+  const match = String(text).match(/(?:\+?998[\s-]?)?(?:\(?\d{2}\)?[\s-]?)\d{3}[\s-]?\d{2}[\s-]?\d{2}/);
+  return match ? match[0].replace(/[^\d+]/g, "") : "";
+}
+
+function firstSalesOwner() {
+  return db.employees.find((employee) => {
+    const position = String(employee.position || "").toLowerCase();
+    return position.includes("sotuv") || position.includes("sales");
+  }) || db.employees[0] || null;
+}
+
+function leadOwner(input = {}) {
+  const employee = db.employees.find((item) => item.id === input.ownerId) || firstSalesOwner();
+  return {
+    ownerId: employee?.id || input.ownerId || "",
+    ownerName: employee?.fullName || input.ownerName || "Avtomatik lead",
+  };
+}
+
+function upsertLead(input) {
+  db.leads = Array.isArray(db.leads) ? db.leads : [];
+  const phone = input.phone || extractPhone(input.text || input.note || "");
+  const normalizedPhone = normalizePhone(phone);
+  if (!normalizedPhone) return { ok: false, message: "Telefon raqam topilmadi" };
+
+  const owner = leadOwner(input);
+  const source = input.source || "Telegram";
+  const note = input.note || input.text || `${source} orqali yangi lid`;
+  const name = input.name || input.fullName || input.username || `Lid ${normalizedPhone.slice(-4)}`;
+  const now = today();
+  const duplicate = db.leads.find((lead) => normalizePhone(lead.phone) === normalizedPhone);
+
+  if (duplicate) {
+    duplicate.name = name || duplicate.name;
+    duplicate.source = source;
+    duplicate.ownerId = owner.ownerId;
+    duplicate.ownerName = owner.ownerName;
+    duplicate.value = Math.max(Number(duplicate.value || 0), Number(input.value || 0));
+    duplicate.lastContactAt = now;
+    duplicate.notes = [
+      `Dublikat birlashtirildi (${source}): ${note}`,
+      ...(duplicate.notes || []),
+    ];
+    saveDb();
+    return { ok: true, duplicate: true, lead: duplicate, message: "Dublikat lead birlashtirildi" };
+  }
+
+  const lead = {
+    id: uid("l"),
+    name,
+    phone,
+    source,
+    ownerId: owner.ownerId,
+    ownerName: owner.ownerName,
+    stage: "Yangi lid",
+    value: Number(input.value || 0),
+    createdAt: now,
+    lastContactAt: now,
+    slaHours: Number(input.slaHours || 24),
+    notes: [note],
+  };
+  db.leads.unshift(lead);
+  saveDb();
+  return { ok: true, duplicate: false, lead, message: "Yangi lead yaratildi" };
+}
+
+function telegramLeadInput(message, text) {
+  const from = message.from || {};
+  const chat = message.chat || {};
+  const contact = message.contact || {};
+  const displayName = [contact.first_name || from.first_name, contact.last_name || from.last_name].filter(Boolean).join(" ");
+  const username = from.username ? `@${from.username}` : "";
+  const chatTitle = chat.title ? `Guruh: ${chat.title}` : "Telegram";
+  const phone = contact.phone_number || extractPhone(text);
+
+  return {
+    name: displayName || username || chat.title || "",
+    username,
+    phone,
+    source: "Telegram",
+    text,
+    note: [
+      chatTitle,
+      username ? `User: ${username}` : "",
+      text ? `Xabar: ${text}` : "",
+    ].filter(Boolean).join("\n"),
+  };
+}
+
+function socialLeadInput(body, fallbackSource = "Sayt forma") {
+  const payload = body.lead || body.contact || body.data || body;
+  const source = body.source || payload.source || fallbackSource;
+  const text = payload.message || payload.text || payload.comment || body.message || "";
+  return {
+    name: payload.name || payload.fullName || payload.full_name || payload.username || body.name || "",
+    username: payload.username || body.username || "",
+    phone: payload.phone || payload.phoneNumber || payload.phone_number || extractPhone(text),
+    source,
+    value: payload.value || body.value || 0,
+    slaHours: payload.slaHours || body.slaHours || 24,
+    text,
+    note: payload.note || text || `${source} webhook orqali kelgan lid`,
+  };
+}
+
 function parseTashkentDateTime(value) {
   if (!value) return null;
   if (/[zZ]|[+-]\d\d:\d\d$/.test(value)) return new Date(value);
@@ -452,11 +566,26 @@ async function processScheduledMeetings() {
 async function handleTelegramUpdate(update) {
   if (update.message) {
     const chatId = String(update.message.chat.id);
+    const chatType = update.message.chat.type || "private";
     const photoAttachment = messagePhotoAttachment(update.message);
     const cvAttachment = messageCvAttachment(update.message);
     const text = String(update.message.text || update.message.caption || "").trim();
     const parts = text.split(/\s+/);
     const command = parts[0];
+    const hasLeadPhone = Boolean(update.message.contact?.phone_number || extractPhone(text));
+
+    if (chatType === "group" || chatType === "supergroup") {
+      if (hasLeadPhone) {
+        const result = upsertLead(telegramLeadInput(update.message, text));
+        if (result.ok) {
+          await telegram("sendMessage", {
+            chat_id: chatId,
+            text: result.duplicate ? "♻️ Lid CRMda yangilandi." : "✅ Yangi lid CRMga qo'shildi.",
+          });
+        }
+      }
+      return;
+    }
 
     if (command === "/start") {
       const existingEmployee = findEmployeeByChat(chatId);
@@ -526,6 +655,17 @@ async function handleTelegramUpdate(update) {
       }
 
       await confirmEmployeeLogin(chatId, employee);
+      return;
+    }
+
+    if (command === "/lead" || (!pendingAuth.has(chatId) && hasLeadPhone && !findEmployeeByChat(chatId))) {
+      const result = upsertLead(telegramLeadInput(update.message, text.replace(/^\/lead\s*/i, "")));
+      await telegram("sendMessage", {
+        chat_id: chatId,
+        text: result.ok
+          ? result.duplicate ? "♻️ Lid CRMda yangilandi." : "✅ Yangi lid CRMga qo'shildi."
+          : `❌ ${result.message}`,
+      });
       return;
     }
 
@@ -737,6 +877,39 @@ async function routeApi(req, res, url) {
       companies: db.companies || [],
       adminCredentials: db.adminCredentials || defaultAdminCredentials,
     });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/leads/intake") {
+    const body = await readBody(req);
+    const result = upsertLead(socialLeadInput(body, body.source || "Sayt forma"));
+    return sendJson(res, result.ok ? 201 : 400, result);
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/social/webhook") {
+    const challenge = url.searchParams.get("hub.challenge") || url.searchParams.get("challenge");
+    if (challenge) {
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end(challenge);
+      return;
+    }
+    return sendJson(res, 200, { ok: true, endpoint: "/api/social/webhook" });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/social/webhook") {
+    const body = await readBody(req);
+    const entries = Array.isArray(body.entry) ? body.entry : [body];
+    const results = [];
+
+    for (const entry of entries) {
+      const changes = Array.isArray(entry.changes) ? entry.changes : [entry];
+      for (const change of changes) {
+        const value = change.value || change;
+        const source = body.source || value.source || (value.messaging_product === "whatsapp" ? "WhatsApp" : "Instagram");
+        results.push(upsertLead(socialLeadInput(value, source)));
+      }
+    }
+
+    return sendJson(res, 200, { ok: true, results });
   }
 
   if (req.method === "GET" && url.pathname === "/api/finance-state") {

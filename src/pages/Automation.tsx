@@ -102,6 +102,23 @@ export default function Automation() {
           "Xodim web-paneli bilan real vaqt sinxron preview",
         ]} />
       </Panel>
+
+      <Panel icon={PlugZap} title="Avtomatik lead qabul qilish">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+          <CodeBox
+            title="Sayt forma"
+            code={`POST /api/leads/intake\n{\n  "source": "Sayt forma",\n  "name": "Ali Valiyev",\n  "phone": "+998901112233",\n  "message": "Demo kerak"\n}`}
+          />
+          <CodeBox
+            title="Social webhook"
+            code={`POST /api/social/webhook\n{\n  "source": "Instagram",\n  "lead": {\n    "name": "Madina",\n    "phone": "+998912223344"\n  }\n}`}
+          />
+          <CodeBox
+            title="Telegram guruh"
+            code={`Botni guruhga qo'shing.\nXabarda telefon bo'lsa CRMga tushadi:\n"Akmal +998 93 123 45 67 demo so'radi"\n\nYoki private chatda:\n/lead Akmal +998931234567`}
+          />
+        </div>
+      </Panel>
     </div>
   );
 }
@@ -127,6 +144,17 @@ function Checklist({ items }: { items: string[] }) {
           <span>{item}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function CodeBox({ title, code }: { title: string; code: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-2 font-semibold">{title}</div>
+      <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed text-muted-foreground">
+        <code>{code}</code>
+      </pre>
     </div>
   );
 }
