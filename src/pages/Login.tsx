@@ -69,8 +69,8 @@ export default function Login({ mode }: LoginProps) {
             <Sparkles className="h-6 w-6 text-white" />
           </div>
           <div>
-            <div className="font-display font-bold text-2xl leading-none">yourHR Pro</div>
-            <div className="text-xs text-white/60 mt-1">Enterprise HR Suite</div>
+            <div className="font-display font-bold text-2xl leading-none">MIZAAM</div>
+            <div className="text-xs text-white/60 mt-1">HR, CRM & Finance Suite</div>
           </div>
         </div>
 
@@ -79,7 +79,7 @@ export default function Login({ mode }: LoginProps) {
             Zamonaviy HR<br/>boshqaruvi. <span className="text-primary-glow">Bir joyda.</span>
           </h2>
           <p className="text-white/70 max-w-md">
-            Xodimlar, vazifalar, davomat va moliyaviy jarayonlarni yagona premium platformada boshqaring.
+            Xodimlar, vazifalar, davomat, CRM va moliyaviy jarayonlarni yagona platformada boshqaring.
           </p>
           <div className="grid grid-cols-4 gap-3 max-w-lg">
             {liveStats.map(s => (
@@ -91,7 +91,7 @@ export default function Login({ mode }: LoginProps) {
           </div>
         </div>
 
-        <div className="relative z-10 text-xs text-white/40">© 2026 yourHR Pro. Barcha huquqlar himoyalangan.</div>
+        <div className="relative z-10 text-xs text-white/40">© 2026 MIZAAM. Barcha huquqlar himoyalangan.</div>
       </div>
 
       {/* Right form */}
@@ -101,7 +101,7 @@ export default function Login({ mode }: LoginProps) {
             <div className="h-10 w-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
               <Sparkles className="h-5 w-5 text-white" />
             </div>
-            <div className="font-display font-bold text-xl">yourHR Pro</div>
+            <div className="font-display font-bold text-xl">MIZAAM</div>
           </div>
 
           <div className="space-y-1.5">

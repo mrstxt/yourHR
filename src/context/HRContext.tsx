@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Employee, Task, Attendance, DailyReport, SupportTicket, RuleSettings, ChatMessage, TaskStatus, ReportStatus, TicketStatus } from "@/types/hr";
-import { initialRules } from "@/data/mockData";
+import {
+  initialAttendance,
+  initialChats,
+  initialEmployees,
+  initialReports,
+  initialRules,
+  initialTasks,
+  initialTickets,
+} from "@/data/mockData";
 import { localDate, localTime } from "@/lib/datetime";
 
 interface HRContextValue {
@@ -38,13 +46,13 @@ interface StoredHRData {
 
 function readStoredData(): StoredHRData {
   return {
-    employees: [],
-    tasks: [],
-    attendance: [],
-    reports: [],
-    tickets: [],
+    employees: initialEmployees,
+    tasks: initialTasks,
+    attendance: initialAttendance,
+    reports: initialReports,
+    tickets: initialTickets,
     rules: initialRules,
-    chats: {},
+    chats: initialChats,
   };
 }
 

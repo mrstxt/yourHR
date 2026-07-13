@@ -42,8 +42,8 @@ export function SidebarNav({ collapsed, onNavigate }: SidebarNavProps) {
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <div className="font-display font-bold text-white text-lg leading-none">yourHR Pro</div>
-            <div className="text-[11px] text-sidebar-foreground/60 mt-1">Enterprise HR Suite</div>
+            <div className="font-display font-bold text-white text-lg leading-none">MIZAAM</div>
+            <div className="text-[11px] text-sidebar-foreground/60 mt-1">HR, CRM & Finance Suite</div>
           </div>
         )}
       </div>
@@ -83,7 +83,7 @@ export function SidebarNav({ collapsed, onNavigate }: SidebarNavProps) {
 
       {!collapsed && (
         <div className="m-3 rounded-xl bg-sidebar-accent p-4 border border-sidebar-border">
-          <div className="text-xs font-semibold text-white mb-1">Pro maslahat</div>
+          <div className="text-xs font-semibold text-white mb-1">MIZAAM maslahat</div>
           <div className="text-[11px] text-sidebar-foreground/70 leading-relaxed">KPI ko'rsatkichlari va davomatni har kuni tekshirib turing.</div>
         </div>
       )}
